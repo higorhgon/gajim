@@ -1,12 +1,12 @@
 # Maintainer: Higor Henrique Prata Gonçalves <higorlhp2@gmail.com>
 # Baseado no PKGBUILD oficial do Arch (extra/gajim)
 
-pkgname=gajim-higorhgon-git
-_pkgname=gajim
-pkgver=2.6.0.r23372.g513c74b18
+pkgname=omajim-git
+_srcname=omajim
+pkgver=2.6.0.r23379.gba46ee6d7
 pkgrel=1
 pkgdesc="Omajim: cliente XMPP baseado no Gajim, com transferência de arquivos SI (Pidgin) e tema do Omarchy"
-url="https://github.com/higorhgon/gajim"
+url="https://github.com/higorhgon/omajim"
 arch=('any')
 license=('GPL-3.0-only')
 depends=('gtk4' 'gtksourceview5' 'gstreamer' 'libadwaita' 'python-cairo' 'python-gobject' 'python-keyring' 'python-nbxmpp' 'python-cryptography' 'python-precis_i18n' 'python-css-parser' 'python-distro' 'hicolor-icon-theme' 'python-pillow' 'python-gssapi' 'python-netifaces' 'python-qrcode' 'python-omemo-dr' 'python-packaging' 'pango' 'sqlite' 'python-sqlalchemy' 'python-emoji' 'python-httpx' 'python-truststore' 'python-h2' 'python-socksio' 'emoji-font' 'python-pysequoia')
@@ -26,26 +26,28 @@ optdepends=('python-dbus: to have gajim-remote working'
             'gst-plugin-gtk4: for video and audio calls'
             'libxss: for idle time checking on X11'
             'python-gpgme: encrypting chat messages with OpenPGP')
-provides=("${_pkgname}")
-conflicts=("${_pkgname}")
-source=("${_pkgname}::git+https://github.com/higorhgon/gajim.git#branch=main")
+provides=('gajim' 'omajim')
+# gajim-higorhgon-git era o nome anterior deste pacote
+conflicts=('gajim' 'gajim-higorhgon-git')
+replaces=('gajim-higorhgon-git')
+source=("${_srcname}::git+https://github.com/higorhgon/omajim.git#branch=main")
 sha256sums=('SKIP')
 
 pkgver() {
-	cd "${_pkgname}"
+	cd "${_srcname}"
 	local _ver
 	_ver=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' gajim/__init__.py)
 	printf "%s.r%s.g%s" "${_ver//-/.}" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
-	cd "${_pkgname}"
+	cd "${_srcname}"
 	./make.py build --dist unix
 	python -m build --wheel --no-isolation
 }
 
 package() {
-	cd "${_pkgname}"
+	cd "${_srcname}"
 	python -m installer --destdir="${pkgdir}" dist/*.whl
 	./make.py install --dist unix --prefix="${pkgdir}/usr"
 }

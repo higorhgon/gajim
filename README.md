@@ -33,7 +33,8 @@ Inclui:
 cd arch && makepkg -si
 ```
 
-O pacote `gajim-higorhgon-git` substitui o pacote `gajim` oficial.
+O pacote `omajim-git` substitui o pacote `gajim` oficial (e o antigo
+`gajim-higorhgon-git`).
 
 ### Firewall para o envio direto
 
