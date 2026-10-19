@@ -122,7 +122,7 @@ class MessageTextSelection:
     def _event_to_view(self, event: Gdk.Event) -> tuple[float, float]:
         native = self._view.get_native()
         assert native is not None
-        x, y = event.get_position()
+        _ok, x, y = event.get_position()
         surface_x, surface_y = native.get_surface_transform()
         point = Graphene.Point().init(x - surface_x, y - surface_y)
         ok, view_point = native.compute_point(self._view, point)
