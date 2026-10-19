@@ -52,6 +52,19 @@
           </object>
         </child>
         <child>
+          <object class="SideBarListBoxRow" id="_help_row">
+            <property name="item-id">help</property>
+            <property name="icon-name">lucide-circle-question-mark-symbolic</property>
+            <property name="tooltip-text" translatable="yes">Help</property>
+            <property name="selectable">false</property>
+            <child>
+              <object class="GtkGestureClick">
+                <signal name="pressed" handler="_on_help_button_press" />
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
           <object class="SideBarListBoxRow">
             <property name="item-id">preferences</property>
             <property name="icon-name">lucide-settings-symbolic</property>

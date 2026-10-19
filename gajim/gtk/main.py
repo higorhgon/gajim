@@ -55,6 +55,7 @@ from gajim.gtk.chat_stack import ChatStack
 from gajim.gtk.const import MAIN_WIN_ACTIONS
 from gajim.gtk.emoji_chooser import EmojiChooser
 from gajim.gtk.main_stack import MainStack
+from gajim.gtk.menus import get_help_menu
 from gajim.gtk.preview.preview import PreviewWidget
 from gajim.gtk.start_chat import parse_uri
 from gajim.gtk.structs import AccountJidParam
@@ -92,6 +93,7 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
 
     _header_bar: Adw.HeaderBar = Gtk.Template.Child()
     _back_button: Gtk.Button = Gtk.Template.Child()
+    _help_button: Gtk.MenuButton = Gtk.Template.Child()
     _split_view: Adw.OverlaySplitView = Gtk.Template.Child()
     _app_side_bar: AppSideBar = Gtk.Template.Child()
     _main_stack: MainStack = Gtk.Template.Child()
@@ -106,6 +108,7 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
         self.set_application(app.app)
         self.set_title(GLib.get_application_name())
         self.set_default_icon_name("gajim")
+        self._help_button.set_menu_model(get_help_menu())
 
         self._startup_finished: bool = False
         self._chat_list_visible_before_focus: bool = True

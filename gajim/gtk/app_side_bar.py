@@ -23,6 +23,7 @@ from gajim.common.i18n import _
 from gajim.gtk.chat_list_row import ChatListRow
 from gajim.gtk.chat_page import ChatPage
 from gajim.gtk.menus import get_activity_feed_menu
+from gajim.gtk.menus import get_help_menu
 from gajim.gtk.sidebar_listbox import SideBarListBox
 from gajim.gtk.sidebar_listbox import SideBarListBoxRow
 from gajim.gtk.status_selector import StatusSelectorPopover
@@ -40,6 +41,7 @@ class AppSideBar(Gtk.Box, EventHelper):
     _workspace_listbox: WorkspaceListBox = Gtk.Template.Child()
     _bottom_listbox: SideBarListBox = Gtk.Template.Child()
     _toggle_row: SideBarListBoxRow = Gtk.Template.Child()
+    _help_row: SideBarListBoxRow = Gtk.Template.Child()
     _account_row: SideBarListBoxRow = Gtk.Template.Child()
 
     def __init__(self) -> None:
@@ -56,6 +58,13 @@ class AppSideBar(Gtk.Box, EventHelper):
         self._status_popover = StatusSelectorPopover()
         self._status_popover.set_parent(self._account_row)
         self._status_popover.connect("clicked", self._on_status_clicked)
+
+        # The help menu lives in the header bar, offer it here while that is
+        # hidden
+        self._help_popover = Gtk.PopoverMenu.new_from_model(get_help_menu())
+        self._help_popover.set_parent(self._help_row)
+        self._update_help_row(app.settings.get("show_header_bar"))
+        app.settings.connect_signal("show_header_bar", self._update_help_row)
 
         accounts = app.settings.get_active_accounts()
         for account in reversed(accounts):
@@ -177,6 +186,20 @@ class AppSideBar(Gtk.Box, EventHelper):
             gesture_click.set_state(Gtk.EventSequenceState.CLAIMED)
             self._status_popover.popup()
             self._account_popover.popdown()
+
+    def _update_help_row(self, show_header_bar: bool, *args: Any) -> None:
+        self._help_row.set_visible(not show_header_bar)
+
+    @Gtk.Template.Callback()
+    def _on_help_button_press(
+        self,
+        gesture_click: Gtk.GestureClick,
+        _n_press: int,
+        _x: float,
+        _y: float,
+    ) -> None:
+        gesture_click.set_state(Gtk.EventSequenceState.CLAIMED)
+        self._help_popover.popup()
 
     @Gtk.Template.Callback()
     def _on_activity_feed_button_press(

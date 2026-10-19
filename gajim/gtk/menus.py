@@ -189,6 +189,20 @@ def get_private_chat_menu(contact: types.GroupchatParticipant) -> GajimMenu:
     return menu
 
 
+def get_help_menu() -> GajimMenu:
+    return GajimMenu.from_list(
+        [
+            (_("_Wiki (Online)"), "app.content", None),
+            (_("FA_Q (Online)"), "app.faq", None),
+            (_("_Privacy Policy (Online)"), "app.privacy-policy", None),
+            (_("_Join Support Chat"), "app.join-support-chat", None),
+            (_("_Keyboard Shortcuts"), "app.shortcuts", None),
+            (_("_Features"), "app.features", None),
+            (_("_About"), "app.about", None),
+        ]
+    )
+
+
 def get_send_file_submenu() -> GajimMenu:
     menu = GajimMenu()
 

@@ -133,6 +133,8 @@ class CSSConfig:
             if self._omarchy_theme.exists():
                 # Follow the desktop theme, unless the user picked a theme
                 APP_SETTINGS["roster_theme"] = OMARCHY_THEME_NAME
+            # Hyprland apps usually have no title bar, unless the user wants one
+            APP_SETTINGS["show_header_bar"] = False
 
         self._gather_available_themes()
         self._load_default()

@@ -7595,6 +7595,9 @@ msgstr "Enviar Arquivo Diretamente…"
 msgid "Based on Gajim"
 msgstr "Baseado no Gajim"
 
+msgid "Help"
+msgstr "Ajuda"
+
 #, fuzzy
 #~ msgid "Send Files Directly"
 #~ msgstr "Enviar Arquivo Diretamente…"
