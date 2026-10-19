@@ -160,6 +160,18 @@ def install(*, prefix: Path, files: dict[str, str]) -> None:
         shutil.copy(src, dest_dir / file)
 
 
+def install_status_icons(*, prefix: Path) -> None:
+    # Trays which don't search IconThemePath as an icon theme (e.g. Quickshell)
+    # only find the tray icons in a theme installed on the system
+    dest_dir = prefix / "share/icons/hicolor/scalable/status"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for src in sorted(
+        Path("gajim/data/icons/hicolor/scalable/status").glob("gajim-status-*.svg")
+    ):
+        log.info("Copy %s to %s", src, dest_dir)
+        shutil.copy(src, dest_dir / src.name)
+
+
 def rename(*, prefix: Path, files: dict[str, str], new_app_id: str) -> None:
     for file_name, path in files.items():
         dest_dir = prefix / path
@@ -194,6 +206,9 @@ def cmd_build(args: argparse.Namespace) -> None:
 
 def cmd_install(args: argparse.Namespace) -> None:
     install(prefix=args.prefix, files=INSTALL_FILES)
+
+    if args.dist == "unix":
+        install_status_icons(prefix=args.prefix)
 
     if args.dist.startswith("flatpak"):
         install(prefix=args.prefix, files=INSTALL_FLATPAK_ICONS)
