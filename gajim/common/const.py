@@ -840,6 +840,9 @@ SASL_ERRORS = {
 
 COMMON_FEATURES = [
     Namespace.BYTESTREAM,
+    "http://jabber.org/protocol/si",
+    "http://jabber.org/protocol/si/profile/file-transfer",
+    "http://jabber.org/protocol/feature-neg",
     Namespace.MUC,
     Namespace.COMMANDS,
     Namespace.DISCO_INFO,

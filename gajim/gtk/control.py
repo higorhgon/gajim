@@ -348,9 +348,8 @@ class ChatControl(EventHelper):
                 ("http-upload-error", ged.GUI2, self._on_http_upload_error),
                 ("encryption-check", ged.GUI2, self._on_encryption_info),
                 ("muc-user-block-changed", ged.GUI2, self._on_muc_user_block_changed),
-                # TODO Jingle FT
-                # ('file-request-received', ged.GUI2, self._on_file_request_event),
-                # ('file-request-sent', ged.GUI2, self._on_file_request_event),
+                ("file-request-received", ged.GUI2, self._on_file_request_event),
+                ("file-request-sent", ged.GUI2, self._on_file_request_event),
             ]
         )
 

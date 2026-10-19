@@ -78,6 +78,13 @@ class FileTransferJingleRow(BaseRow, EventHelper):
                     self._file_props = FilesProp.getFilePropBySid(source.sid)
                     if self._file_props is None:
                         log.debug("File prop not found for SID: %s", source.sid)
+            if self._file_props is None and (file_transfer.name or file_transfer.path):
+                fp = FileProp(account, "")
+                fp.name = file_transfer.name
+                fp.file_name = file_transfer.path
+                fp.size = file_transfer.size
+                fp.completed = file_transfer.path is not None
+                self._file_props = fp
             self.pk = message.pk
         else:
             assert event is not None
@@ -344,16 +351,17 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         self._ui.transfer_action.set_text(_("File Transfer Completed"))
 
     def _on_accept_file_request(self, _button: Gtk.Button) -> None:
-        pass
-        # app.interface.instances["file_transfers"].on_file_request_accepted(
-        #     self._account, self._contact, self._file_props
-        # )
-        # self._start_time = time.time()
+        assert self._file_props is not None
+        if self._file_props.session_type == "si":
+            self._client.get_module("SI").accept_transfer(self._file_props.sid)
+        self._start_time = time.time()
 
     def _on_reject_file_request(self, _button: Gtk.Button) -> None:
         assert self._file_props is not None
-        self._client.get_module("Bytestream").send_file_rejection(self._file_props)
-        assert self._file_props is not None
+        if self._file_props.session_type == "si":
+            self._client.get_module("SI").reject_transfer(self._file_props.sid)
+        else:
+            self._client.get_module("Bytestream").send_file_rejection(self._file_props)
         self._file_props.stopped = True
         self._ui.action_stack.set_visible_child_name("rejected")
         self._ui.transfer_action.set_text(_("File Transfer Cancelled"))
@@ -366,7 +374,16 @@ class FileTransferJingleRow(BaseRow, EventHelper):
     def _on_open_folder(self, _button: Gtk.Button) -> None:
         assert self._file_props is not None
         assert self._file_props.file_name is not None
-        open_file(Path(self._file_props.file_name), show_in_folder=True)
+        import os
+        import subprocess
+        folder = Path(self._file_props.file_name).parent
+        if not folder.exists():
+            log.warning("Folder does not exist: %s", folder)
+            return
+        env = dict(os.environ)
+        env.pop("LD_LIBRARY_PATH", None)
+        env.pop("GI_TYPELIB_PATH", None)
+        subprocess.Popen(["xdg-open", str(folder)], env=env)
 
     def _on_bad_hash_retry(self, _button: Gtk.Button) -> None:
         pass
@@ -375,8 +392,12 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         # )
 
     def _on_cancel_transfer(self, _button: Gtk.Button) -> None:
-        pass
-        # app.interface.instances["file_transfers"].cancel_transfer(self._file_props)
+        assert self._file_props is not None
+        if self._file_props.session_type == "si":
+            self._client.get_module("SI").cancel_transfer(self._file_props.sid)
+        self._file_props.stopped = True
+        self._ui.action_stack.set_visible_child_name("rejected")
+        self._ui.transfer_action.set_text(_("File Transfer Cancelled"))
 
     def _on_show_transfers(self, _button: Gtk.Button) -> None:
         pass

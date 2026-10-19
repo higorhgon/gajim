@@ -25,7 +25,7 @@ from errno import EWOULDBLOCK
 from gajim.common import app
 from gajim.common.file_props import FilesProp
 
-# from nbxmpp.idlequeue import IdleObject
+from gajim.common.glib_idlequeue import IdleObject
 
 
 log = logging.getLogger("gajim.c.socks5")

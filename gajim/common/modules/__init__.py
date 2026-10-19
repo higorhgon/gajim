@@ -54,6 +54,7 @@ from gajim.common.modules.roster import Roster
 from gajim.common.modules.roster_item_exchange import RosterItemExchange
 from gajim.common.modules.search import Search
 from gajim.common.modules.security_labels import SecLabels
+from gajim.common.modules.si import SI
 from gajim.common.modules.software_version import SoftwareVersion
 from gajim.common.modules.user_avatar import UserAvatar
 from gajim.common.modules.user_location import UserLocation
@@ -108,6 +109,7 @@ ModulesT = (
     | RosterItemExchange
     | Search
     | SecLabels
+    | SI
     | SoftwareVersion
     | UserAvatar
     | UserLocation
@@ -160,6 +162,7 @@ ModulesLiteralT = Literal[
     "RosterItemExchange",
     "Search",
     "SecLabels",
+    "SI",
     "SoftwareVersion",
     "UserAvatar",
     "UserLocation",
@@ -213,6 +216,7 @@ class ModuleDict(TypedDict):
     RosterItemExchange: RosterItemExchange
     Search: Search
     SecLabels: SecLabels
+    SI: SI
     SoftwareVersion: SoftwareVersion
     UserAvatar: UserAvatar
     UserLocation: UserLocation
