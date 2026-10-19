@@ -48,6 +48,7 @@ from gajim.gtk.chat_state_indicator import ChatStateIndicator
 from gajim.gtk.emoji_chooser import EmojiChooser
 from gajim.gtk.menus import get_encryption_menu
 from gajim.gtk.menus import get_format_menu
+from gajim.gtk.menus import get_send_file_submenu
 from gajim.gtk.message_input import MessageInputTextView
 from gajim.gtk.message_url_previews import MessageURLPreviews
 from gajim.gtk.referenced_message import ReplyBox
@@ -143,6 +144,9 @@ class MessageActionsBox(Gtk.Grid, EventHelper, SignalManager):
         self._connect(self._message_input, "realize", self._on_view_realize)
 
         self._ui.sendfile_button.set_tooltip_text(_("No File Transfer available"))
+        # Lets the user pick a method when more than one is available
+        self._send_file_menu = Gtk.PopoverMenu.new_from_model(get_send_file_submenu())
+        self._send_file_menu.set_parent(self._ui.sendfile_button)
         self._ui.formattings_button.set_menu_model(get_format_menu())
         self._ui.encryption_menu_button.set_menu_model(get_encryption_menu())
 
@@ -205,6 +209,7 @@ class MessageActionsBox(Gtk.Grid, EventHelper, SignalManager):
             self._contact.disconnect_all_from_obj(self)
 
         self._security_label_selector.run_destroy()
+        self._send_file_menu.unparent()
 
         Gtk.Grid.do_unroot(self)
         app.check_finalize(self)
@@ -767,6 +772,9 @@ class MessageActionsBox(Gtk.Grid, EventHelper, SignalManager):
         app.plugin_manager.extension_point(
             f"encryption_dialog{encryption}", app.window.get_control()
         )
+
+    def show_send_file_menu(self) -> None:
+        self._send_file_menu.popup()
 
     def _on_send_file_enabled_changed(
         self, action: Gio.SimpleAction, _param: GObject.ParamSpec

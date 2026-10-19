@@ -657,6 +657,16 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
                 if all("" == uri for uri in param.get_strv()):
                     # All list entries are "" (default when invoking "send-file" action)
                     uris = None
+
+            if (
+                method is None
+                and uris is None
+                and app.window.get_action_enabled("send-file-httpupload")
+                and app.window.get_action_enabled("send-file-direct")
+            ):
+                self._message_action_box.show_send_file_menu()
+                return
+
             self._show_chat_function_page(FunctionMode.SEND_FILE, method, uris)
 
         elif action_name == "show-contact-info":
