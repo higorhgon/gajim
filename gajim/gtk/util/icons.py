@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 import logging
+import sys
 
 import cairo
 from gi.repository import Gdk
@@ -85,6 +86,9 @@ def get_tray_icon_name(name: str) -> str:
     prefix = "gajim"
     if app.is_flatpak():
         prefix = app.get_default_app_id()
+    elif sys.platform == "linux":
+        # Omajim tray icons, installed into the system icon theme
+        prefix = "omajim"
     return f"{prefix}-status-{name}"
 
 

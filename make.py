@@ -166,7 +166,7 @@ def install_status_icons(*, prefix: Path) -> None:
     dest_dir = prefix / "share/icons/hicolor/scalable/status"
     dest_dir.mkdir(parents=True, exist_ok=True)
     for src in sorted(
-        Path("gajim/data/icons/hicolor/scalable/status").glob("gajim-status-*.svg")
+        Path("gajim/data/icons/hicolor/scalable/status").glob("omajim-status-*.svg")
     ):
         log.info("Copy %s to %s", src, dest_dir)
         shutil.copy(src, dest_dir / src.name)
