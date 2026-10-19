@@ -8,9 +8,14 @@ Gajim aims to be an easy to use and fully-featured XMPP client.
 Just chat with your friends or family, easily share pictures and 
 thoughts or discuss the news with your groups.
 
-## Este fork
+## Este fork (Omajim)
 
-Fork do Gajim 2.6.0 com:
+Fork do Gajim 2.6.0, exibido como **Omajim**, com ícone no estilo dos apps
+do Omarchy e ícone de bandeja que mostra o status numa bolinha colorida.
+Abre pelo lançador ou pelos comandos `omajim` e `gajim`; as contas e o
+histórico continuam em `~/.config/gajim` e `~/.local/share/gajim`.
+
+Inclui:
 
 - envio e recebimento de arquivos com clientes que usam SI (XEP-0096), como o
   Pidgin, por conexão direta na rede local ou pelo servidor (IBB);

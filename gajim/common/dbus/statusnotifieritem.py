@@ -59,12 +59,12 @@ log = logging.getLogger("gajim.c.tray.linux")
 class StatusNotifierItemService(DBusService):
     Category = "Communications"
     Id = "org.gajim.Gajim"
-    Title = "Gajim"
+    Title = "Omajim"
     Status = "Active"
     IconName = ""
     IconThemePath = ""
     AttentionIconName = ""
-    ToolTip: tuple[str, list[Any], str, str] = ("", [], "Gajim", "")
+    ToolTip: tuple[str, list[Any], str, str] = ("", [], "Omajim", "")
     ItemIsMenu = False
     Menu = "/StatusNotifierItem/Menu"
 

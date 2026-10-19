@@ -338,7 +338,7 @@ class GajimApplication(Adw.Application, CoreApplication):
             print(gajim.__version__)
             return 0
 
-        application_name = "Gajim"
+        application_name = "Omajim"
 
         user_profile = options.lookup_value("user-profile")
         if user_profile is not None:
@@ -348,7 +348,7 @@ class GajimApplication(Adw.Application, CoreApplication):
             # Incorporate user_profile name into application id
             # to have a single app instance for each user_profile.
             user_profile_str = user_profile.get_string()
-            application_name = f"Gajim ({user_profile_str})"
+            application_name = f"Omajim ({user_profile_str})"
             app_id = f"{self.get_application_id()}.{user_profile_str}"
             self.set_application_id(app_id)
             configpaths.set_user_profile(user_profile_str)

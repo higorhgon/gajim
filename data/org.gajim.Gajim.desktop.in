@@ -4,7 +4,7 @@ Name=@APP_NAME@
 GenericName=XMPP Chat Client
 Comment=A fully-featured XMPP chat client
 #Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
-Keywords=chat;messaging;im;xmpp;voip;
+Keywords=chat;messaging;im;xmpp;voip;gajim;omajim;
 Exec=gajim %u
 Icon=@APP_ICON_NAME@
 StartupNotify=false

@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 CONFIG_VALUES = {
     "APP_ID": "org.gajim.Gajim",
-    "APP_NAME": "Gajim",
+    "APP_NAME": "Omajim",
     "APP_ICON_NAME": "org.gajim.Gajim",
     "FLATPAK": "False",
     "FLATPAK_NIGHTLY": "False",

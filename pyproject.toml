@@ -62,6 +62,7 @@ gajim-remote = "gajim.remote:run"
 
 [project.gui-scripts]
 gajim = "gajim.main:run"
+omajim = "gajim.main:run"
 
 [dependency-groups]
 dev = [

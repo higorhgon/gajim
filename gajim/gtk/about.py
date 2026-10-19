@@ -35,8 +35,9 @@ class AboutDialog:
 
     def _get_dialog(self) -> Adw.AboutDialog:
         dialog = Adw.AboutDialog(
-            application_name="Gajim",
+            application_name="Omajim",
             application_icon="gajim",
+            comments=_("Based on Gajim"),
             version=get_extended_app_version(),
             copyright="Copyright © 2003-2026 Gajim Team",
             license_type=Gtk.License.GPL_3_0_ONLY,

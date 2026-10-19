@@ -3,9 +3,9 @@
 
 pkgname=gajim-higorhgon-git
 _pkgname=gajim
-pkgver=2.6.0
+pkgver=2.6.0.r23372.g513c74b18
 pkgrel=1
-pkgdesc="Full featured and easy to use XMPP (Jabber) client (fork com recebimento de arquivos via SI/XEP-0096)"
+pkgdesc="Omajim: cliente XMPP baseado no Gajim, com transferência de arquivos SI (Pidgin) e tema do Omarchy"
 url="https://github.com/higorhgon/gajim"
 arch=('any')
 license=('GPL-3.0-only')

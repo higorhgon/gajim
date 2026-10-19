@@ -7592,6 +7592,9 @@ msgstr "Transferência direta (sem criptografia)"
 msgid "Send File Directly…"
 msgstr "Enviar Arquivo Diretamente…"
 
+msgid "Based on Gajim"
+msgstr "Baseado no Gajim"
+
 #, fuzzy
 #~ msgid "Send Files Directly"
 #~ msgstr "Enviar Arquivo Diretamente…"
