@@ -16,8 +16,11 @@ Fork do Gajim 2.6.0 com:
   Pidgin, por conexão direta na rede local ou pelo servidor (IBB);
 - tema que segue o tema atual do [Omarchy](https://omarchy.org) e troca junto
   com ele;
-- seleção de texto entre mensagens (arrastar, ou Shift+clique para mensagens
-  inteiras).
+- seleção de texto entre mensagens, arrastando de uma mensagem a outra;
+- Shift+clique para selecionar mensagens inteiras: clique numa mensagem e dê
+  Shift+clique em outra para entrar no modo "Selecionar Mensagens" com o
+  intervalo marcado; dentro do modo, Shift+clique numa mensagem marcada a
+  desmarca.
 
 ### Instalação no Arch Linux
 

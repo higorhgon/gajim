@@ -2,13 +2,15 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 
-# Selects text across messages, by dragging from one message to another or
-# by Shift+clicking a second message to select whole messages.
-#
+# Selects text across messages by dragging from one message to another.
 # GtkLabel keeps a selection only while it owns the primary clipboard, so
 # selecting text in one message clears the selection of every other one.
 # This draws the selection with Pango attributes instead, and copies it
 # with Ctrl+C.
+#
+# Shift+clicking a message selects whole messages, using the message
+# selection mode: it starts the mode with every message from the last clicked
+# one, and inside the mode it adds a range or deselects a selected message.
 
 from __future__ import annotations
 
@@ -99,23 +101,25 @@ class MessageTextSelection:
     def _on_event(
         self, controller: Gtk.EventControllerLegacy, _event: Gdk.Event | None
     ) -> bool:
-        if self._list_box.get_selection_mode() != Gtk.SelectionMode.NONE:
-            # Message selection mode handles clicks on its own
-            return Gdk.EVENT_PROPAGATE
-
         # PyGObject passes None for the event argument, GdkEvent being a
         # fundamental type, so ask the controller for it instead
         event = controller.get_current_event()
         if event is None:
             return Gdk.EVENT_PROPAGATE
 
+        row_selection = self._list_box.get_selection_mode() != Gtk.SelectionMode.NONE
         event_type = event.get_event_type()
         if event_type == Gdk.EventType.BUTTON_PRESS:
             assert isinstance(event, Gdk.ButtonEvent)
             if event.get_button() != Gdk.BUTTON_PRIMARY:
                 return Gdk.EVENT_PROPAGATE
             shift = bool(event.get_modifier_state() & Gdk.ModifierType.SHIFT_MASK)
+            if row_selection:
+                return self.press_in_row_selection(*self._event_to_view(event), shift)
             return self.press(*self._event_to_view(event), shift)
+
+        if row_selection:
+            return Gdk.EVENT_PROPAGATE
 
         if event_type == Gdk.EventType.MOTION_NOTIFY and self._pressed:
             self.motion(*self._event_to_view(event))
@@ -139,9 +143,11 @@ class MessageTextSelection:
     def press(self, x: float, y: float, shift: bool = False) -> bool:
         position = self._position_at(x, y)
 
-        if shift and position is not None and self._is_in_view(self._click_anchor):
-            assert self._click_anchor is not None
-            self.select_rows(self._click_anchor, position.row)
+        row = self._row_at(x, y)
+        anchor = self._click_anchor
+        if shift and _is_selectable(row) and self._is_in_view(anchor):
+            assert row is not None and anchor is not None
+            self._start_row_selection(anchor, row)
             # Keep the label from starting a selection of its own
             return Gdk.EVENT_STOP
 
@@ -165,17 +171,47 @@ class MessageTextSelection:
         if self._active:
             self._view.get_primary_clipboard().set(self.get_text())
 
-    def select_rows(self, row1: Gtk.ListBoxRow, row2: Gtk.ListBoxRow) -> None:
-        first, last = sorted((row1, row2), key=lambda row: row.get_index())
-        labels = _get_labels(last) if _is_selectable(last) else []
-        end_offset = len(labels[-1].get_text()) if labels else 1
+    def press_in_row_selection(self, x: float, y: float, shift: bool) -> bool:
+        row = self._row_at(x, y)
+        if not _is_selectable(row):
+            return Gdk.EVENT_PROPAGATE
+        assert row is not None
+
+        anchor = self._click_anchor
+        self._click_anchor = row
+        if not shift:
+            # A plain click keeps the behaviour of the selection mode
+            return Gdk.EVENT_PROPAGATE
+
+        if row.is_selected():
+            self._list_box.unselect_row(row)
+        elif self._is_in_view(anchor):
+            assert anchor is not None
+            self._select_row_range(anchor, row)
+        else:
+            self._list_box.select_row(row)
+        return Gdk.EVENT_STOP
+
+    def _start_row_selection(self, anchor: Gtk.ListBoxRow, row: Gtk.ListBoxRow) -> None:
+        pk = getattr(anchor, "pk", None) or getattr(row, "pk", None)
+        if pk is None:
+            # Messages not stored yet can't start the selection mode
+            return
 
         self.clear()
-        self._active = True
-        self._set_range(
-            Position(first, 0, 0), Position(last, max(len(labels) - 1, 0), end_offset)
+        # Starts the message selection mode with that message selected
+        app.window.activate_action(
+            "win.activate-message-selection", GLib.Variant("u", pk)
         )
-        self._view.get_primary_clipboard().set(self.get_text())
+        self._select_row_range(anchor, row)
+        self._click_anchor = row
+
+    def _select_row_range(self, row1: Gtk.ListBoxRow, row2: Gtk.ListBoxRow) -> None:
+        first, last = sorted((row1.get_index(), row2.get_index()))
+        for index in range(first, last + 1):
+            row = self._list_box.get_row_at_index(index)
+            if _is_selectable(row):
+                self._list_box.select_row(row)
 
     def clear(self) -> None:
         self._restore_native_label()
