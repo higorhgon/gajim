@@ -45,6 +45,9 @@ class PlainWidget(Gtk.Box):
     def set_selectable(self, selectable: bool) -> None:
         self._text_widget.set_selectable(selectable)
 
+    def get_label(self) -> Gtk.Label:
+        return self._text_widget
+
     def add_content(self, block: PlainBlock) -> None:
         self._text_widget.print_text_with_styling(block)
 

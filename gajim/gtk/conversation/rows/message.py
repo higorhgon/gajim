@@ -419,6 +419,11 @@ class MessageRow(BaseRow):
     def get_text(self) -> str:
         return self._message_widget.get_text()
 
+    def get_text_labels(self) -> list[Gtk.Label]:
+        if isinstance(self._message_widget, MessageWidget):
+            return self._message_widget.get_text_labels()
+        return []
+
     def _get_encryption_data(
         self,
         encryption_data: mod.Encryption | None,

@@ -56,6 +56,18 @@ class MessageWidget(Gtk.Box, SignalManager):
             if isinstance(widget, PlainWidget):
                 widget.set_selectable(selectable)
 
+    def get_text_labels(self) -> list[Gtk.Label]:
+        # Text labels in reading order, including those inside quotes
+        labels: list[Gtk.Label] = []
+        for widget in iterate_children(self):
+            if isinstance(widget, PlainWidget):
+                labels.append(widget.get_label())
+            elif isinstance(widget, QuoteWidget):
+                for child in iterate_children(widget):
+                    if isinstance(child, MessageWidget):
+                        labels.extend(child.get_text_labels())
+        return labels
+
     def add_with_styling(
         self, text: str, nickname: str | None = None, show_full_text: bool = False
     ) -> None:

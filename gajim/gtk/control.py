@@ -241,10 +241,21 @@ class ChatControl(EventHelper):
     def message_selection_active(self) -> bool:
         return self._message_selection.get_visible()
 
+    def text_selection_active(self) -> bool:
+        # Text selected across several messages
+        return self._scrolled_view.text_selection_active()
+
+    def copy_text_selection(self) -> None:
+        self._scrolled_view.copy_text_selection()
+
     def process_escape(self) -> bool:
         message_selection_active = self._message_selection.get_visible()
         if message_selection_active:
             self._reset_message_selection()
+            return True
+
+        if self._scrolled_view.text_selection_active():
+            self._scrolled_view.clear_text_selection()
             return True
 
         return False

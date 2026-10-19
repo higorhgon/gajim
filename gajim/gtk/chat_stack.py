@@ -140,6 +140,13 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
         self._connect(controller, "key-pressed", self._on_key_pressed)
         self.add_controller(controller)
 
+        # Runs before the focused widget, which is usually the message input
+        controller = Gtk.EventControllerKey(
+            propagation_phase=Gtk.PropagationPhase.CAPTURE
+        )
+        self._connect(controller, "key-pressed", self._on_key_pressed_capture)
+        self.add_controller(controller)
+
         self.add_named(overlay, "controls")
 
         self.register_events(
@@ -879,6 +886,27 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
                 return Gdk.EVENT_STOP
 
         return Gdk.EVENT_PROPAGATE
+
+    def _on_key_pressed_capture(
+        self,
+        _event_controller_key: Gtk.EventControllerKey,
+        keyval: int,
+        _keycode: int,
+        state: Gdk.ModifierType,
+    ) -> bool:
+        if not self._chat_control.text_selection_active():
+            return Gdk.EVENT_PROPAGATE
+
+        if not state & Gdk.ModifierType.CONTROL_MASK or keyval != Gdk.KEY_c:
+            return Gdk.EVENT_PROPAGATE
+
+        focus = app.window.get_focus()
+        if isinstance(focus, Gtk.TextView) and focus.get_buffer().get_has_selection():
+            # Text selected in the message input takes precedence
+            return Gdk.EVENT_PROPAGATE
+
+        self._chat_control.copy_text_selection()
+        return Gdk.EVENT_STOP
 
     def _show_chat_function_page(
         self,

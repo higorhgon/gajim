@@ -59,6 +59,7 @@ from gajim.gtk.conversation.rows.muc_subject import MUCSubject
 from gajim.gtk.conversation.rows.scroll_hint import ScrollHintRow
 from gajim.gtk.conversation.rows.user_status import UserStatus
 from gajim.gtk.conversation.rows.widgets import MessageRowActions
+from gajim.gtk.conversation.text_selection import MessageTextSelection
 from gajim.gtk.util.misc import check_finalize
 from gajim.gtk.util.misc import iterate_listbox_children
 
@@ -149,6 +150,8 @@ class ConversationView(Gtk.ScrolledWindow):
 
         self.set_child(self._list_box)
 
+        self._text_selection = MessageTextSelection(self, self._list_box)
+
         app.ged.register_event_handler(
             "register-actions", ged.GUI1, self._on_register_actions
         )
@@ -185,7 +188,17 @@ class ConversationView(Gtk.ScrolledWindow):
 
         self.disable_row_selection()
 
+    def text_selection_active(self) -> bool:
+        return self._text_selection.active
+
+    def copy_text_selection(self) -> None:
+        self.get_clipboard().set(self._text_selection.get_text())
+
+    def clear_text_selection(self) -> None:
+        self._text_selection.clear()
+
     def enable_row_selection(self, pk: int | None) -> None:
+        self._text_selection.clear()
         self._list_box.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
 
         if pk is not None:
@@ -322,6 +335,7 @@ class ConversationView(Gtk.ScrolledWindow):
         self._requesting = None
         self.set_history_complete(True, False)
 
+        self._text_selection.reset()
         self._reset_list_box()
 
         self._row_count = 0
