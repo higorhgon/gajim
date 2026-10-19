@@ -8,6 +8,44 @@ Gajim aims to be an easy to use and fully-featured XMPP client.
 Just chat with your friends or family, easily share pictures and 
 thoughts or discuss the news with your groups.
 
+## Este fork
+
+Fork do Gajim 2.6.0 com:
+
+- envio e recebimento de arquivos com clientes que usam SI (XEP-0096), como o
+  Pidgin, por conexão direta na rede local ou pelo servidor (IBB);
+- tema que segue o tema atual do [Omarchy](https://omarchy.org) e troca junto
+  com ele;
+- seleção de texto entre mensagens (arrastar, ou Shift+clique para mensagens
+  inteiras).
+
+### Instalação no Arch Linux
+
+```sh
+cd arch && makepkg -si
+```
+
+O pacote `gajim-higorhgon-git` substitui o pacote `gajim` oficial.
+
+### Firewall para o envio direto
+
+No envio direto (menu "Enviar Arquivo Diretamente…"), quem recebe se conecta
+no computador de quem envia, na porta TCP 28011. Com o `ufw` ativo, como no
+Omarchy, essa porta vem bloqueada e o envio direto falha. Libere a porta na
+máquina que envia, de preferência só para a rede local (troque a faixa pela
+da sua rede):
+
+```sh
+sudo ufw allow from 192.168.0.0/24 to any port 28011 proto tcp
+```
+
+Para descobrir a faixa da rede, veja o endereço da sua interface com
+`ip -4 addr`. A porta pode ser trocada no Editor de Configuração Avançada
+(`file_transfers_port`); nesse caso, libere a porta escolhida.
+
+Receber arquivos não exige liberar nada: quem recebe é que se conecta em quem
+envia.
+
 ## Requirements
 
 ### Runtime Requirements
