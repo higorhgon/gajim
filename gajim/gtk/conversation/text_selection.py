@@ -97,10 +97,16 @@ class MessageTextSelection:
         return self._active
 
     def _on_event(
-        self, _controller: Gtk.EventControllerLegacy, event: Gdk.Event
+        self, controller: Gtk.EventControllerLegacy, _event: Gdk.Event | None
     ) -> bool:
         if self._list_box.get_selection_mode() != Gtk.SelectionMode.NONE:
             # Message selection mode handles clicks on its own
+            return Gdk.EVENT_PROPAGATE
+
+        # PyGObject passes None for the event argument, GdkEvent being a
+        # fundamental type, so ask the controller for it instead
+        event = controller.get_current_event()
+        if event is None:
             return Gdk.EVENT_PROPAGATE
 
         event_type = event.get_event_type()
