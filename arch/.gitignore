@@ -1,0 +1,6 @@
+# Artefatos do makepkg
+/src/
+/pkg/
+/gajim/
+*.pkg.tar.*
+*.log

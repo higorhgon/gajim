@@ -1,0 +1,51 @@
+# Maintainer: Higor Henrique Prata Gonçalves <higorlhp2@gmail.com>
+# Baseado no PKGBUILD oficial do Arch (extra/gajim)
+
+pkgname=gajim-higorhgon-git
+_pkgname=gajim
+pkgver=2.6.0
+pkgrel=1
+pkgdesc="Full featured and easy to use XMPP (Jabber) client (fork com recebimento de arquivos via SI/XEP-0096)"
+url="https://github.com/higorhgon/gajim"
+arch=('any')
+license=('GPL-3.0-only')
+depends=('gtk4' 'gtksourceview5' 'gstreamer' 'libadwaita' 'python-cairo' 'python-gobject' 'python-keyring' 'python-nbxmpp' 'python-cryptography' 'python-precis_i18n' 'python-css-parser' 'python-distro' 'hicolor-icon-theme' 'python-pillow' 'python-gssapi' 'python-netifaces' 'python-qrcode' 'python-omemo-dr' 'python-packaging' 'pango' 'sqlite' 'python-sqlalchemy' 'python-emoji' 'python-httpx' 'python-truststore' 'python-h2' 'python-socksio' 'emoji-font' 'python-pysequoia')
+makedepends=('git' 'python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+optdepends=('python-dbus: to have gajim-remote working'
+            'python-sentry_sdk: for Sentry error reporting (users decide whether to send reports or not)'
+            'libspelling: for spell checking support'
+            'libsecret: for GNOME Keyring or KDE support as password storage'
+            'gupnp-igd: for better NAT traversing'
+            'networkmanager: for network lose detection'
+            'geoclue: share current location'
+            'gsound: Notification Sounds'
+            'farstream: for video and audio calls'
+            'gst-plugins-base: for video and audio calls'
+            'gst-plugins-ugly: for video and audio calls'
+            'gst-libav: for video and audio calls'
+            'gst-plugin-gtk4: for video and audio calls'
+            'libxss: for idle time checking on X11'
+            'python-gpgme: encrypting chat messages with OpenPGP')
+provides=("${_pkgname}")
+conflicts=("${_pkgname}")
+source=("${_pkgname}::git+https://github.com/higorhgon/gajim.git#branch=main")
+sha256sums=('SKIP')
+
+pkgver() {
+	cd "${_pkgname}"
+	local _ver
+	_ver=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' gajim/__init__.py)
+	printf "%s.r%s.g%s" "${_ver//-/.}" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+	cd "${_pkgname}"
+	./make.py build --dist unix
+	python -m build --wheel --no-isolation
+}
+
+package() {
+	cd "${_pkgname}"
+	python -m installer --destdir="${pkgdir}" dist/*.whl
+	./make.py install --dist unix --prefix="${pkgdir}/usr"
+}
