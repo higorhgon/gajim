@@ -32,6 +32,7 @@ else:
     from gajim.common.dbus.system_style import SystemStyleListener
 
 from gajim.gtk.const import Theme
+from gajim.gtk.omarchy import OmarchyTheme
 
 log = logging.getLogger("gajim.gtk.css")
 
@@ -122,6 +123,12 @@ class CSSConfig:
 
         self.set_dark_theme()
         self._load_css()
+
+        self._omarchy_theme: OmarchyTheme | None = None
+        if OmarchyTheme.is_available():
+            self._omarchy_theme = OmarchyTheme(configpaths.get("MY_THEME"))
+            self._omarchy_theme.start()
+
         self._gather_available_themes()
         self._load_default()
         self._load_selected()
@@ -290,33 +297,12 @@ class CSSConfig:
         self._theme_monitors.clear()
 
         assert self._css_path is not None
-        watched = [self._css_path]
-        monitors = [self._monitor_path(self._css_path, directory=False)]
-
-        if self._css_path.is_symlink():
-            # The link target may live in a directory which gets replaced
-            # as a whole (e.g. Omarchy swaps its current theme directory),
-            # so also watch the directory containing that directory
-            target = self._css_path.parent / self._css_path.readlink()
-            watched += [target, target.parent]
-            monitors += [
-                self._monitor_path(target, directory=False),
-                self._monitor_path(target.parent.parent, directory=True),
-            ]
-
-        self._theme_watched_paths = {str(path) for path in watched}
-        self._theme_monitors = monitors
-        self._theme_monitor_path = self._css_path
-
-    def _monitor_path(self, path: Path, directory: bool) -> Gio.FileMonitor:
-        file = Gio.File.new_for_path(str(path))
-        flags = Gio.FileMonitorFlags.WATCH_MOVES
-        if directory:
-            monitor = file.monitor_directory(flags, None)
-        else:
-            monitor = file.monitor_file(flags, None)
+        file = Gio.File.new_for_path(str(self._css_path))
+        monitor = file.monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
         monitor.connect("changed", self._on_theme_file_changed)
-        return monitor
+        self._theme_monitors = [monitor]
+        self._theme_watched_paths = {str(self._css_path)}
+        self._theme_monitor_path = self._css_path
 
     def _on_theme_file_changed(
         self,
