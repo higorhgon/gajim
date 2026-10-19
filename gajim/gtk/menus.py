@@ -195,7 +195,7 @@ def get_send_file_submenu() -> GajimMenu:
     value = GLib.Variant("as", [""])
 
     menu.add_item(_("Upload File…"), "win.send-file-httpupload", value)
-    # menu.add_item(_('Send File Directly…'), 'win.send-file-jingle', value)
+    menu.add_item(_("Send File Directly…"), "win.send-file-direct", value)
     return menu
 
 

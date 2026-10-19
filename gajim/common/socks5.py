@@ -78,7 +78,7 @@ class SocksQueue:
         log.debug("Start listening for socks5 connection")
         sid = file_props.sid
         self.sha_handlers[sha_str] = (sha_handler, sid)
-        if self.listener is None or not self.listener.connections:
+        if self.listener is None or not self.listener.started:
             self.listener = Socks5Listener(self.idlequeue, port, file_props)
             self.listener.queue = self
             self.listener.bind()
@@ -291,9 +291,37 @@ class SocksQueue:
         sockobjects[keys] = sockobj
 
     def result_sha(self, sha_str, idx):
+        if isinstance(sha_str, bytes):
+            # The SOCKS5 handshake delivers the SHA1 as raw bytes
+            sha_str = sha_str.decode("utf-8", errors="replace")
         if sha_str in self.sha_handlers:
             props = self.sha_handlers[sha_str]
+            self._assign_file_props(idx, props[1])
             props[0](props[1], idx)
+
+    def _assign_file_props(self, idx, sid):
+        # The listener accepts connections for every offered file, only the
+        # SHA1 sent during the SOCKS5 handshake tells which file it is for
+        file_props = FilesProp.getFilePropBySid(sid)
+        if file_props is None:
+            return
+        for key in list(self.senders):
+            if idx not in key:
+                continue
+            sender = self.senders.pop(key)
+            sender.file_props = file_props
+            file_props.error = 0
+            file_props.disconnect_cb = sender.disconnect
+            file_props.continue_cb = sender.continue_paused_transfer
+            file_props.started = True
+            file_props.completed = False
+            file_props.paused = False
+            file_props.stalled = False
+            file_props.connected = True
+            file_props.elapsed_time = 0
+            file_props.last_time = time.time()
+            file_props.received_len = 0
+            self._add(sender, self.senders, file_props, idx)
 
     def activate_proxy(self, idx):
         if not self.isHashInSockObjs(self.senders, idx):

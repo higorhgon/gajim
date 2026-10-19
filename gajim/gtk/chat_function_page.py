@@ -386,15 +386,13 @@ class ChatFunctionPage(Gtk.Box, SignalManager):
             return
 
         # catalog: list[(file Path, transfer method, recipient JID)]
-        for path, method, _jid in catalog:
+        for path, method, jid in catalog:
             if method == "httpupload":
                 client.get_module("HTTPUpload").send_file(self._contact, path)
                 continue
 
-            # Send using Jingle
-            # app.interface.instances["file_transfers"].send_file(
-            #     self._contact.account, self._contact, jid, str(path)
-            # )
+            if method == "direct":
+                client.get_module("SI").send_file(jid, path)
 
 
 class InputWidget(Gtk.Box, SignalManager):

@@ -6353,13 +6353,17 @@ msgstr "...ou solte-o aqui"
 #~ msgid "%s has read up to this point"
 #~ msgstr "%s leu até este ponto"
 
-#, fuzzy, python-format
-#~ msgid ""
-#~ "%s is online with multiple devices.\n"
-#~ "Choose the device you would like to send the files to."
-#~ msgstr ""
-#~ "%s está online em vários dispositivos.\n"
-#~ "Escolha o dispositivo para o qual deseja enviar o arquivo."
+#, python-format
+msgid ""
+"%s is online with multiple devices.\n"
+"Choose the device you would like to send the files to."
+msgstr ""
+"%s está online em vários dispositivos.\n"
+"Escolha o dispositivo para o qual deseja enviar os arquivos."
+
+#, python-format
+msgid "%s declined the file"
+msgstr "%s recusou o arquivo"
 
 #, python-format
 #~ msgid "(%(filesize_unit)s/s)"
@@ -6945,9 +6949,8 @@ msgstr "...ou solte-o aqui"
 #~ msgid "Dial Number"
 #~ msgstr "Número de Série"
 
-#, fuzzy
-#~ msgid "Direct transfer (not encrypted)"
-#~ msgstr "Transferência do arquivo parada"
+msgid "Direct transfer (not encrypted)"
+msgstr "Transferência direta (sem criptografia)"
 
 #~ msgid "Disclose the local system time of the device Gajim runs on"
 #~ msgstr ""
@@ -7586,8 +7589,8 @@ msgstr "...ou solte-o aqui"
 #~ msgid "Send Chatstate"
 #~ msgstr "Enviar Estado de Chat"
 
-#~ msgid "Send File Directly…"
-#~ msgstr "Enviar Arquivo Diretamente…"
+msgid "Send File Directly…"
+msgstr "Enviar Arquivo Diretamente…"
 
 #, fuzzy
 #~ msgid "Send Files Directly"

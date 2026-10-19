@@ -188,7 +188,7 @@ class IBB(BaseModule):
 
         if file_props.completed:
             app.socks5queue.complete_transfer_cb(self._account, file_props)
-        else:
+        elif file_props.session_type != "si":
             if file_props.type_ == "s":
                 peerjid = file_props.receiver
             else:

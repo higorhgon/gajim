@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 # XEP-0096: SI File Transfer (Stream Initiation)
-# Enables receiving files from legacy clients (e.g. Pidgin) that do not
-# support Jingle File Transfer (XEP-0234).
+# Enables sending files to and receiving files from legacy clients
+# (e.g. Pidgin) that do not support Jingle File Transfer (XEP-0234).
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ from nbxmpp.structs import StanzaHandler
 from gajim.common import app
 from gajim.common import events as ged_events
 from gajim.common import types
+from gajim.common.file_props import FileProp
 from gajim.common.file_props import FilesProp
 from gajim.common.glib_idlequeue import GLibIdleQueue
 from gajim.common.modules.base import BaseModule
@@ -32,10 +33,14 @@ from gajim.common.storage.archive.const import ChatDirection
 from gajim.common.storage.archive.const import MessageState
 from gajim.common.storage.archive.const import MessageType
 from gajim.common.util.datetime import utc_now
+from gajim.common.util.preview import guess_mime_type
 
 NS_SI = "http://jabber.org/protocol/si"
 NS_SI_FT = "http://jabber.org/protocol/si/profile/file-transfer"
 NS_FEATURE_NEG = "http://jabber.org/protocol/feature-neg"
+
+# FileProp.error when the receiver declined the offer
+ERROR_DECLINED = -13
 
 log = logging.getLogger("gajim.c.m.si")
 
@@ -73,18 +78,28 @@ class SI(BaseModule):
             ),
         ]
 
-    def _complete_transfer_cb(self, account: str, file_props: object) -> None:
-        self._log.info(
-            "File transfer complete: account=%s name=%s",
-            account,
-            getattr(file_props, "name", "?"),
-        )
-        app.ged.raise_event(
-            ged_events.FileCompleted(
-                account=account,
-                file_props=file_props,
-                jid=getattr(file_props, "sender", ""),
+    def _complete_transfer_cb(self, account: str, file_props: FileProp) -> None:
+        # SOCKS5 reports the end of a transfer the same way for success
+        # and failure, only FileProp.error tells them apart
+        peer = file_props.receiver if file_props.type_ == "s" else file_props.sender
+        if file_props.error:
+            self._log.warning(
+                "File transfer failed: account=%s name=%s error=%s",
+                account,
+                file_props.name,
+                file_props.error,
             )
+            app.ged.raise_event(
+                ged_events.FileError(account=account, file_props=file_props, jid=peer)
+            )
+            return
+
+        self._log.info(
+            "File transfer complete: account=%s name=%s", account, file_props.name
+        )
+        file_props.completed = True
+        app.ged.raise_event(
+            ged_events.FileCompleted(account=account, file_props=file_props, jid=peer)
         )
 
     def _progress_transfer_cb(self, account: str, file_props: object) -> None:
@@ -169,29 +184,7 @@ class SI(BaseModule):
         fp.file_name = self._get_save_path(filename, sid)
 
         sender_bare = JID.from_string(from_jid).new_as_bare()
-
-        ft_data = mod.FileTransfer(
-            state=1,
-            name=filename,
-            size=size,
-            source=[mod.JingleFT(type="jingleft", sid=sid)],
-        )
-        ft_data.path = fp.file_name
-        message_data = mod.Message(
-            account_=self._account,
-            remote_jid_=sender_bare,
-            resource=JID.from_string(from_jid).resource,
-            type=MessageType.CHAT,
-            direction=ChatDirection.INCOMING,
-            timestamp=utc_now(),
-            state=MessageState.ACKNOWLEDGED,
-            id=str(uuid.uuid4()),
-            filetransfers=[ft_data],
-        )
-        try:
-            app.storage.archive.insert_object(message_data)
-        except Exception as exc:
-            self._log.warning("Failed to store SI transfer in archive: %s", exc)
+        self._store_transfer(fp, sender_bare, ChatDirection.INCOMING)
 
         app.ged.raise_event(
             ged_events.FileRequestReceivedEvent(
@@ -309,14 +302,159 @@ class SI(BaseModule):
                 except Exception:
                     pass
             else:
+                peer = fp.receiver if fp.type_ == "s" else fp.sender
                 try:
                     self._nbxmpp("IBB").send_close(
-                        fp.sender, fp.transport_sid, callback=lambda _t: None
+                        peer, fp.transport_sid, callback=lambda _t: None
                     )
                 except Exception:
                     pass
         elif sid in self._pending:
             self.reject_transfer(sid)
+        elif fp.type_ == "s":
+            # Offer not answered yet, or waiting for the receiver to connect
+            self._con.get_module("Bytestream").remove_transfer(fp)
+
+    def send_file(self, jid: JID, path: Path) -> None:
+        """
+        Offer a file to a resource of a contact, the transfer starts once
+        the contact accepts it
+        """
+        sid = str(uuid.uuid4())
+        own_jid = str(self._con.get_own_jid())
+
+        fp = FilesProp.getNewFileProp(self._account, sid)
+        fp.type_ = "s"
+        fp.sid = sid
+        fp.transport_sid = sid
+        fp.session_type = "si"
+        fp.name = path.name
+        fp.file_name = str(path)
+        fp.size = path.stat().st_size
+        fp.mime_type = guess_mime_type(path)
+        fp.sender = own_jid
+        fp.receiver = str(jid)
+
+        iq = nbxmpp.Iq(typ="set", to=str(jid))
+        si = iq.addChild(
+            "si",
+            namespace=NS_SI,
+            attrs={"id": sid, "mime-type": fp.mime_type, "profile": NS_SI_FT},
+        )
+        si.addChild(
+            "file", namespace=NS_SI_FT, attrs={"name": fp.name, "size": str(fp.size)}
+        )
+        feature = si.addChild("feature", namespace=NS_FEATURE_NEG)
+        x = feature.addChild("x", namespace="jabber:x:data", attrs={"type": "form"})
+        field = x.addChild(
+            "field", attrs={"var": "stream-method", "type": "list-single"}
+        )
+        for method in (Namespace.BYTESTREAM, Namespace.IBB):
+            field.addChild("option").addChild("value").setData(method)
+
+        self._con.connection.send_stanza(
+            iq, callback=self._on_offer_response, user_data={"sid": sid}
+        )
+        self._log.info(
+            "SI offer sent: to=%s name=%s size=%s sid=%s", jid, fp.name, fp.size, sid
+        )
+
+        self._store_transfer(fp, jid.new_as_bare(), ChatDirection.OUTGOING)
+        app.ged.raise_event(
+            ged_events.FileRequestSent(
+                account=self._account, file_props=fp, jid=jid.new_as_bare()
+            )
+        )
+
+    def _on_offer_response(
+        self, _client: types.NBXMPPClient, stanza: Iq, sid: str
+    ) -> None:
+        fp = FilesProp.getFileProp(self._account, sid)
+        if fp is None or fp.stopped:
+            return
+
+        bare_jid = JID.from_string(fp.receiver).bare
+        if not nbxmpp.isResultNode(stanza):
+            # Pidgin answers a declined offer with <forbidden/>
+            condition = stanza.getError()
+            self._log.info("SI offer %s refused: %s", sid, condition)
+            fp.error = ERROR_DECLINED if condition == "forbidden" else -4
+            app.ged.raise_event(
+                ged_events.FileRequestError(
+                    conn=self._con,
+                    file_props=fp,
+                    jid=bare_jid,
+                    error_msg=stanza.getErrorMsg() or "",
+                )
+            )
+            return
+
+        method = self._get_chosen_method(stanza)
+        self._log.info("SI offer %s accepted, stream method: %s", sid, method)
+        if method == Namespace.BYTESTREAM:
+            self._con.get_module("Bytestream").send_socks5_info(fp, use_upnp=False)
+        elif method == Namespace.IBB:
+            # Closed by the IBB module once the transfer ends
+            file = open(fp.file_name, "rb")  # noqa: SIM115
+            self._con.get_module("IBB").send_open(fp.receiver, sid, file)
+        else:
+            fp.error = -4
+            app.ged.raise_event(
+                ged_events.FileRequestError(
+                    conn=self._con,
+                    file_props=fp,
+                    jid=bare_jid,
+                    error_msg=f"Unsupported stream method: {method}",
+                )
+            )
+
+    @staticmethod
+    def _get_chosen_method(stanza: Iq) -> str | None:
+        si = stanza.getTag("si", namespace=NS_SI)
+        if si is None:
+            return None
+        feature = si.getTag("feature", namespace=NS_FEATURE_NEG)
+        if feature is None:
+            return None
+        x = feature.getTag("x", namespace="jabber:x:data")
+        if x is None:
+            return None
+        for field in x.getTags("field"):
+            if field.getAttr("var") == "stream-method":
+                value = field.getTag("value")
+                if value is not None:
+                    return value.getData()
+        return None
+
+    def _store_transfer(
+        self, fp: FileProp, remote_jid: JID, direction: ChatDirection
+    ) -> None:
+        resource = None
+        if direction == ChatDirection.INCOMING:
+            resource = JID.from_string(fp.sender).resource
+
+        ft_data = mod.FileTransfer(
+            state=1,
+            name=fp.name,
+            size=fp.size,
+            source=[mod.JingleFT(type="jingleft", sid=fp.sid)],
+        )
+        ft_data.path = fp.file_name
+        message_data = mod.Message(
+            account_=self._account,
+            remote_jid_=remote_jid,
+            resource=resource,
+            type=MessageType.CHAT,
+            direction=direction,
+            timestamp=utc_now(),
+            state=MessageState.ACKNOWLEDGED,
+            id=str(uuid.uuid4()),
+            filetransfers=[ft_data],
+        )
+        try:
+            app.storage.archive.insert_object(message_data)
+        except Exception as exc:
+            self._log.warning("Failed to store SI transfer in archive: %s", exc)
 
     @staticmethod
     def _get_save_path(filename: str, sid: str) -> str:

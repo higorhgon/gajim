@@ -30,6 +30,7 @@ from gajim.common.i18n import _
 from gajim.common.modules.contacts import BareContact
 from gajim.common.modules.contacts import GroupchatContact
 from gajim.common.modules.contacts import GroupchatParticipant
+from gajim.common.modules.si import NS_SI_FT
 from gajim.common.storage.archive.const import ChatDirection
 from gajim.common.storage.archive.const import MessageType
 from gajim.common.storage.archive.models import Message
@@ -162,7 +163,7 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
         actions = [
             "send-file",
             "send-file-httpupload",
-            # 'send-file-jingle',
+            "send-file-direct",
             "start-video-call",
             "start-voice-call",
             "send-message",
@@ -270,6 +271,13 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
 
         else:
             self._update_chat_actions(self._current_contact)
+            # Direct file transfer depends on the devices the contact is using
+            self._current_contact.multi_connect(
+                {
+                    "presence-update": self._on_contact_devices_changed,
+                    "caps-update": self._on_contact_devices_changed,
+                }
+            )
 
         if isinstance(self._current_contact, GroupchatContact):
             muc_data = client.get_module("MUC").get_muc_data(self._current_contact.jid)
@@ -400,6 +408,12 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
             return
 
         self._update_group_chat_actions(self._current_contact)
+
+    def _on_contact_devices_changed(
+        self, contact: BareContact, _signal_name: str
+    ) -> None:
+        if contact is self._current_contact:
+            self._update_base_actions(contact)
 
     def _on_feature_discovered(self, event: events.FeatureDiscovered) -> None:
         if self._current_contact is None:
@@ -559,12 +573,13 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
         httpupload = app.window.get_action("send-file-httpupload")
         httpupload.set_enabled(online and client.get_module("HTTPUpload").available)
 
-        # jingle = app.window.get_action('send-file-jingle')
-        # jingle.set_enabled(online and contact.is_jingle_available)
+        direct = app.window.get_action("send-file-direct")
+        direct.set_enabled(
+            online and isinstance(contact, BareContact) and contact.supports(NS_SI_FT)
+        )
 
         app.window.get_action("send-file").set_enabled(
-            # jingle.get_enabled() or
-            httpupload.get_enabled()
+            direct.get_enabled() or httpupload.get_enabled()
         )
 
         app.window.get_action("correct-message").set_enabled(online)
@@ -633,8 +648,8 @@ class ChatStack(Gtk.Stack, EventHelper, SignalManager):
             if "httpupload" in name:
                 method = "httpupload"
 
-            # if 'jingle' in name:
-            #     method = 'jingle'
+            if "direct" in name:
+                method = "direct"
 
             uris = None
             if param is not None:

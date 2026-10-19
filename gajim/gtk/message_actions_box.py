@@ -223,8 +223,8 @@ class MessageActionsBox(Gtk.Grid, EventHelper, SignalManager):
         action = app.window.get_action("set-encryption")
         self._connect(action, "change-state", self._change_encryption)
 
-        # action = app.window.get_action('send-file-jingle')
-        # self._connect(action, 'notify::enabled', self._on_send_file_enabled_changed)
+        action = app.window.get_action("send-file-direct")
+        self._connect(action, "notify::enabled", self._on_send_file_enabled_changed)
 
         action = app.window.get_action("send-file-httpupload")
         self._connect(action, "notify::enabled", self._on_send_file_enabled_changed)
@@ -775,8 +775,7 @@ class MessageActionsBox(Gtk.Grid, EventHelper, SignalManager):
 
     def _update_send_file_button_tooltip(self):
         httpupload = app.window.get_action_enabled("send-file-httpupload")
-        # jingle = app.window.get_action_enabled('send-file-jingle')
-        jingle = False
+        jingle = app.window.get_action_enabled("send-file-direct")
 
         if not httpupload and not jingle:
             tooltip_text = _("No File Transfer available")

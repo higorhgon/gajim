@@ -22,6 +22,7 @@ from gajim.common.const import Display
 from gajim.common.const import IMAGE_MIME_TYPES
 from gajim.common.i18n import _
 from gajim.common.modules.contacts import BareContact
+from gajim.common.modules.si import NS_SI_FT
 from gajim.common.multiprocess.thumbnail import create_thumbnail
 from gajim.common.util.filesystem import load_file_async
 from gajim.common.util.preview import get_icon_for_mime_type
@@ -72,26 +73,28 @@ class FileTransferSelector(Gtk.Box, SignalManager):
             self._file_chooser_button, "path-picked", self._on_choose_files_clicked
         )
 
-        # TODO Jingle FT
-        # self._resource_selector = None
+        self._resource_selector = None
 
-        # if isinstance(contact, BareContact):
-        #     # No jingle file transfers in group chats
-        #     self._resource_selector = ResourceSelector(
-        #         contact,
-        #         constraints=[Namespace.JINGLE_FILE_TRANSFER_5])
-        #     self._connect(
-        #         self._resource_selector,
-        #         'selection-changed',
-        #         self._on_resource_selection
-        #     )
-        #     self._ui.resource_box.prepend(
-        #         self._resource_selector)
+        if self._method == "direct" and isinstance(contact, BareContact):
+            # No direct file transfers in group chats
+            self._resource_selector = ResourceSelector(
+                contact, constraints=[NS_SI_FT]
+            )
+            self._connect(
+                self._resource_selector,
+                "selection-changed",
+                self._on_resource_selection,
+            )
+            self._ui.resource_box.prepend(self._resource_selector)
 
-        #     self._ui.resource_instructions.set_text(
-        #         _('%s is online with multiple devices.\n'
-        #           'Choose the device you would like to send the '
-        #           'files to.') % self._contact.name)
+            self._ui.resource_instructions.set_text(
+                _(
+                    "%s is online with multiple devices.\n"
+                    "Choose the device you would like to send the "
+                    "files to."
+                )
+                % self._contact.name
+            )
 
         drop_target = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         self._connect(drop_target, "accept", self._on_drop_accept)
@@ -138,9 +141,27 @@ class FileTransferSelector(Gtk.Box, SignalManager):
         if current_page == "resource-selection":
             return False
 
+        if len(self._get_direct_resources()) == 1:
+            # Only one device can receive the files, no need to ask
+            return False
+
         self._ui.stack.set_visible_child_name("resource-selection")
         self.emit("changed", False)
         return True
+
+    def _get_direct_resources(self) -> list[JID]:
+        assert isinstance(self._contact, BareContact)
+        return [
+            resource.jid
+            for resource in self._contact.iter_resources()
+            if resource.supports(NS_SI_FT)
+        ]
+
+    def _get_direct_jid(self) -> JID:
+        assert self._resource_selector is not None
+        if self._ui.stack.get_visible_child_name() == "resource-selection":
+            return self._resource_selector.get_jid()
+        return self._get_direct_resources()[0]
 
     def get_catalog(self) -> list[tuple[Path, str, JID]]:
         # catalog: list[(file Path, transfer method, recipient JID)]
@@ -148,11 +169,9 @@ class FileTransferSelector(Gtk.Box, SignalManager):
 
         file_paths = self._get_file_paths()
         for path in file_paths:
-            # if (self._method == 'jingle' or
-            #         self._is_over_max_http_file_size(path)):
-            #     assert self._resource_selector is not None
-            #     item = (path, 'jingle', self._resource_selector.get_jid())
-            if self._method == "httpupload":
+            if self._method == "direct":
+                item = (path, "direct", self._get_direct_jid())
+            elif self._method == "httpupload":
                 item = (path, "httpupload", self._contact.jid)
             else:
                 # No file transfer method available
@@ -172,7 +191,7 @@ class FileTransferSelector(Gtk.Box, SignalManager):
             size_warning = bool(
                 self._method == "httpupload" and self._is_over_max_http_file_size(path)
             )
-            jingle_warning = bool(self._method == "jingle")
+            jingle_warning = bool(self._method == "direct")
 
             row = FileRow(path, size_warning, jingle_warning)
             self._connect(row, "removed", self._on_row_removed)
@@ -286,10 +305,9 @@ class FileRow(Gtk.ListBoxRow, SignalManager):
             self._ui.warning_label.set_text(_("File too big"))
             self._ui.warning_label.set_visible(True)
 
-        # if jingle_warning:
-        #     self._ui.warning_label.set_text(
-        #         _('Direct transfer (not encrypted)'))
-        #     self._ui.warning_label.set_visible(True)
+        if jingle_warning:
+            self._ui.warning_label.set_text(_("Direct transfer (not encrypted)"))
+            self._ui.warning_label.set_visible(True)
 
         self._ui.preview_image_box.set_size_request(PREVIEW_SIZE, -1)
         self._set_preview(path)

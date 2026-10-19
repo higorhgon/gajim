@@ -245,9 +245,12 @@ class Bytestream(BaseModule):
                     app.socks5queue.remove_receiver(host["idx"])
                     app.socks5queue.remove_sender(host["idx"])
 
-    def _send_socks5_info(self, file_props: FileProp) -> None:
+    def send_socks5_info(self, file_props: FileProp, use_upnp: bool = True) -> None:
         """
         Send iq for the present streamhosts and proxies
+
+        use_upnp=False keeps the transfer in the local network, instead of
+        asking the router to forward the port from the internet
         """
         if not app.account_is_available(self._account):
             return
@@ -261,7 +264,8 @@ class Bytestream(BaseModule):
         listener = app.socks5queue.start_listener(
             port, sha_str, self._result_socks5_sid, file_props
         )
-        if not listener:
+        if not listener or not listener.started:
+            log.error("Could not listen on port %s for file transfer", port)
             file_props.error = -5
             app.ged.raise_event(
                 FileRequestError(
@@ -284,6 +288,9 @@ class Bytestream(BaseModule):
             self._add_addiditional_streamhosts_to_query(query, file_props)
             self._add_local_ips_as_streamhosts_to_query(query, file_props)
             self._add_proxy_streamhosts_to_query(query, file_props)
+            if not use_upnp:
+                self._con.connection.send(iq)
+                return
             self._add_upnp_igd_as_streamhost_to_query(query, file_props, iq)
             # Upnp-igd is asynchronous, so it will send the iq itself
 
@@ -318,6 +325,9 @@ class Bytestream(BaseModule):
                     addr[4][0] not in my_ips
                     and not addr[4][0].startswith("127")
                     and not addr[4][0] == "::1"
+                    # Link-local addresses need a zone index the
+                    # receiver can't know, so they never work
+                    and not addr[4][0].lower().startswith("fe80:")
                 ):
                     my_ips.append(addr[4][0])
 
@@ -379,7 +389,7 @@ class Bytestream(BaseModule):
             return False
 
         if not ip_is_local(my_ip):
-            self.connection.send(iq)
+            self._con.connection.send(iq)
             return
 
         self.no_gupnp_reply_id = 0

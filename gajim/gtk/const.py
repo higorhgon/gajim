@@ -221,7 +221,7 @@ MAIN_WIN_ACTIONS = [
     ("reply", "u", True),
     ("jump-to-message", "au", True),
     ("send-file-httpupload", "as", False),
-    # ('send-file-jingle', 'as', False),
+    ("send-file-direct", "as", False),
     ("send-file", "as", False),
     ("start-voice-call", None, False),
     ("start-video-call", None, False),

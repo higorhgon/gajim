@@ -1331,8 +1331,11 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
             self.mark_as_read(contact.account, contact.jid)
 
     def get_preferred_ft_method(self, contact: types.ChatContactT) -> str | None:
-        httpupload_enabled = app.window.get_action_enabled("send-file-httpupload")
-        return "httpupload" if httpupload_enabled else None
+        if app.window.get_action_enabled("send-file-httpupload"):
+            return "httpupload"
+        if app.window.get_action_enabled("send-file-direct"):
+            return "direct"
+        return None
         # TODO Jingle FT
         # ft_pref = app.settings.get_account_setting(
         #     contact.account,

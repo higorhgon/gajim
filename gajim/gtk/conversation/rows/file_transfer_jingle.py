@@ -30,6 +30,7 @@ from gajim.common.file_props import FilesProp
 from gajim.common.ged import EventHelper
 from gajim.common.i18n import _
 from gajim.common.modules.contacts import BareContact
+from gajim.common.modules.si import ERROR_DECLINED
 from gajim.common.storage.archive import models as mod
 from gajim.common.storage.archive.const import ChatDirection
 from gajim.common.util.datetime import utc_now
@@ -281,6 +282,11 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         elif isinstance(event, FileRequestError | FileSendError):
             self._ui.action_stack.set_visible_child_name("error")
             self._ui.transfer_action.set_text(_("File Transfer Cancelled"))
+            if event.file_props.error == ERROR_DECLINED:
+                self._ui.error_label.set_text(
+                    _("%s declined the file") % self._contact.name
+                )
+                return
             error_text = (
                 _("Connection with %s could not be established.") % self._contact.name
             )
@@ -304,9 +310,13 @@ class FileTransferJingleRow(BaseRow, EventHelper):
             if self._start_time == 0:
                 self._start_time = time_now
                 return
-            if not file_props.transferred_size:
+            if file_props.transferred_size:
+                transferred_size = file_props.transferred_size[-1][1]
+            else:
+                # SOCKS5 and IBB count sent bytes in received_len
+                transferred_size = file_props.received_len
+            if not transferred_size:
                 return
-            transferred_size = file_props.transferred_size[-1][1]
         else:
             # We're receiving a file
             transferred_size = file_props.received_len
