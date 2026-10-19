@@ -87,8 +87,9 @@ class CSSConfig:
 
         # Watches the selected theme file, so changes made by external
         # tools (e.g. desktop theme switchers) are applied without restart
-        self._theme_monitor: Gio.FileMonitor | None = None
+        self._theme_monitors: list[Gio.FileMonitor] = []
         self._theme_monitor_path: Path | None = None
+        self._theme_watched_paths: set[str] = set()
         self._theme_reload_id: int | None = None
 
         # User Theme CSS Provider
@@ -280,38 +281,64 @@ class CSSConfig:
         self._css = css_parser.parseFile(self._css_path)
         self._watch_theme_file()
 
-    def _watch_theme_file(self) -> None:
-        if self._theme_monitor_path == self._css_path:
+    def _watch_theme_file(self, force: bool = False) -> None:
+        if not force and self._theme_monitor_path == self._css_path:
             return
 
-        if self._theme_monitor is not None:
-            self._theme_monitor.cancel()
+        for monitor in self._theme_monitors:
+            monitor.cancel()
+        self._theme_monitors.clear()
 
         assert self._css_path is not None
-        file = Gio.File.new_for_path(str(self._css_path))
-        self._theme_monitor = file.monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
-        self._theme_monitor.connect("changed", self._on_theme_file_changed)
+        watched = [self._css_path]
+        monitors = [self._monitor_path(self._css_path, directory=False)]
+
+        if self._css_path.is_symlink():
+            # The link target may live in a directory which gets replaced
+            # as a whole (e.g. Omarchy swaps its current theme directory),
+            # so also watch the directory containing that directory
+            target = self._css_path.parent / self._css_path.readlink()
+            watched += [target, target.parent]
+            monitors += [
+                self._monitor_path(target, directory=False),
+                self._monitor_path(target.parent.parent, directory=True),
+            ]
+
+        self._theme_watched_paths = {str(path) for path in watched}
+        self._theme_monitors = monitors
         self._theme_monitor_path = self._css_path
+
+    def _monitor_path(self, path: Path, directory: bool) -> Gio.FileMonitor:
+        file = Gio.File.new_for_path(str(path))
+        flags = Gio.FileMonitorFlags.WATCH_MOVES
+        if directory:
+            monitor = file.monitor_directory(flags, None)
+        else:
+            monitor = file.monitor_file(flags, None)
+        monitor.connect("changed", self._on_theme_file_changed)
+        return monitor
 
     def _on_theme_file_changed(
         self,
         _monitor: Gio.FileMonitor,
-        _file: Gio.File,
-        _other_file: Gio.File | None,
+        file: Gio.File,
+        other_file: Gio.File | None,
         event_type: Gio.FileMonitorEvent,
     ) -> None:
-        if event_type in (
-            Gio.FileMonitorEvent.DELETED,
-            Gio.FileMonitorEvent.MOVED_OUT,
-            Gio.FileMonitorEvent.ATTRIBUTE_CHANGED,
-        ):
+        if event_type == Gio.FileMonitorEvent.ATTRIBUTE_CHANGED:
+            return
+
+        paths = {file.get_path()}
+        if other_file is not None:
+            paths.add(other_file.get_path())
+        if not paths & self._theme_watched_paths:
             return
 
         # Editors and theme switchers emit several events per write,
         # reload only once after they settle
         if self._theme_reload_id is not None:
             GLib.source_remove(self._theme_reload_id)
-        self._theme_reload_id = GLib.timeout_add(200, self._reload_theme_file)
+        self._theme_reload_id = GLib.timeout_add(50, self._reload_theme_file)
 
     def _reload_theme_file(self) -> bool:
         self._theme_reload_id = None
@@ -320,6 +347,8 @@ class CSSConfig:
 
         log.info("Theme file changed, reloading %s", self._css_path)
         self._load_selected(self._css_path)
+        # A replaced directory leaves the old monitors stale
+        self._watch_theme_file(force=True)
         self._activate_theme()
         return GLib.SOURCE_REMOVE
 
