@@ -16,6 +16,7 @@ from css_parser.css import CSSStyleRule
 from css_parser.css import CSSStyleSheet
 from gi.repository import Adw
 from gi.repository import Gdk
+from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import Gtk
 from gi.repository import Pango
@@ -83,6 +84,12 @@ class CSSConfig:
         # Holds the currently selected theme
         self._css: CSSStyleSheet | None = None
         self._css_path: Path | None = None
+
+        # Watches the selected theme file, so changes made by external
+        # tools (e.g. desktop theme switchers) are applied without restart
+        self._theme_monitor: Gio.FileMonitor | None = None
+        self._theme_monitor_path: Path | None = None
+        self._theme_reload_id: int | None = None
 
         # User Theme CSS Provider
         self._user_theme_provider = Gtk.CssProvider()
@@ -271,6 +278,50 @@ class CSSConfig:
         else:
             self._css_path = new_path
         self._css = css_parser.parseFile(self._css_path)
+        self._watch_theme_file()
+
+    def _watch_theme_file(self) -> None:
+        if self._theme_monitor_path == self._css_path:
+            return
+
+        if self._theme_monitor is not None:
+            self._theme_monitor.cancel()
+
+        assert self._css_path is not None
+        file = Gio.File.new_for_path(str(self._css_path))
+        self._theme_monitor = file.monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self._theme_monitor.connect("changed", self._on_theme_file_changed)
+        self._theme_monitor_path = self._css_path
+
+    def _on_theme_file_changed(
+        self,
+        _monitor: Gio.FileMonitor,
+        _file: Gio.File,
+        _other_file: Gio.File | None,
+        event_type: Gio.FileMonitorEvent,
+    ) -> None:
+        if event_type in (
+            Gio.FileMonitorEvent.DELETED,
+            Gio.FileMonitorEvent.MOVED_OUT,
+            Gio.FileMonitorEvent.ATTRIBUTE_CHANGED,
+        ):
+            return
+
+        # Editors and theme switchers emit several events per write,
+        # reload only once after they settle
+        if self._theme_reload_id is not None:
+            GLib.source_remove(self._theme_reload_id)
+        self._theme_reload_id = GLib.timeout_add(200, self._reload_theme_file)
+
+    def _reload_theme_file(self) -> bool:
+        self._theme_reload_id = None
+        if self._css_path is None or not self._css_path.exists():
+            return GLib.SOURCE_REMOVE
+
+        log.info("Theme file changed, reloading %s", self._css_path)
+        self._load_selected(self._css_path)
+        self._activate_theme()
+        return GLib.SOURCE_REMOVE
 
     def _load_default(self) -> None:
         self._default_css_path = self.get_theme_path("default", user=False)
@@ -603,8 +654,10 @@ class CSSConfig:
     def _activate_theme(self) -> None:
         log.info("Activate theme")
         self._invalidate_cache()
-        assert self._css is not None
-        self._user_theme_provider.load_from_bytes(GLib.Bytes.new(self._css.cssText))
+        assert self._css_path is not None
+        # Load the file as is, css_parser drops custom properties
+        # (e.g. --accent-bg-color) which libadwaita uses for its colors
+        self._user_theme_provider.load_from_path(str(self._css_path))
 
     def add_new_theme(self, theme: str) -> bool:
         theme_path = self.get_theme_path(theme)
