@@ -120,6 +120,9 @@ class OmarchyTheme:
     def is_available() -> bool:
         return OMARCHY_CURRENT.is_dir()
 
+    def exists(self) -> bool:
+        return self._theme_path.exists()
+
     def start(self) -> None:
         self.render()
 

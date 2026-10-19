@@ -25,6 +25,7 @@ from gajim.common import app
 from gajim.common import configpaths
 from gajim.common.const import CSSPriority
 from gajim.common.const import StyleAttr
+from gajim.common.setting_values import APP_SETTINGS
 
 if sys.platform == "win32":
     from gajim.common.winapi.system_style import SystemStyleListener
@@ -33,6 +34,7 @@ else:
 
 from gajim.gtk.const import Theme
 from gajim.gtk.omarchy import OmarchyTheme
+from gajim.gtk.omarchy import THEME_NAME as OMARCHY_THEME_NAME
 
 log = logging.getLogger("gajim.gtk.css")
 
@@ -128,6 +130,9 @@ class CSSConfig:
         if OmarchyTheme.is_available():
             self._omarchy_theme = OmarchyTheme(configpaths.get("MY_THEME"))
             self._omarchy_theme.start()
+            if self._omarchy_theme.exists():
+                # Follow the desktop theme, unless the user picked a theme
+                APP_SETTINGS["roster_theme"] = OMARCHY_THEME_NAME
 
         self._gather_available_themes()
         self._load_default()
