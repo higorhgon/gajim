@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "omajim.status",
+  "name": "Omajim",
+  "version": "1.0.0",
+  "author": "Omajim",
+  "license": "GPL-3.0-only",
+  "description": "Omajim status in the bar, drawn with the theme's font and colors",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Omajim",
+    "description": "Omajim status, window toggle and tray menu",
+    "category": "Apps",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

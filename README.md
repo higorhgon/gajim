@@ -22,6 +22,12 @@ Inclui:
   Pidgin, por conexão direta na rede local ou pelo servidor (IBB);
 - tema que segue o tema atual do [Omarchy](https://omarchy.org) e troca junto
   com ele;
+- no Omarchy, um widget na barra no lugar do ícone da bandeja: glifo da Nerd
+  Font na cor do tema, bolinha com a cor do status, clique para mostrar a
+  janela e clique direito para o menu. O Omajim instala o plugin
+  `omajim.status` em `~/.config/omarchy/plugins` na primeira vez que abre e o
+  mantém atualizado; para tirá-lo, use `omarchy plugin remove omajim.status`
+  e mostre o ícone da bandeja de novo pelo gerenciador da bandeja;
 - seleção de texto entre mensagens, arrastando de uma mensagem a outra;
 - Shift+clique para selecionar mensagens inteiras: clique numa mensagem e dê
   Shift+clique em outra para entrar no modo "Selecionar Mensagens" com o

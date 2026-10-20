@@ -8,8 +8,11 @@
 
 from __future__ import annotations
 
+import filecmp
+import json
 import logging
 import os
+import shutil
 import tempfile
 import tomllib
 from pathlib import Path
@@ -22,6 +25,10 @@ log = logging.getLogger("gajim.gtk.omarchy")
 
 OMARCHY_CURRENT = Path.home() / ".local/state/omarchy/current"
 THEME_NAME = "omarchy"
+
+OMARCHY_CONFIG = Path.home() / ".config/omarchy"
+BAR_PLUGIN_ID = "omajim.status"
+TRAY_ITEM_ID = "org.gajim.Gajim"
 
 # Colors older themes may not define, and the color used instead
 FALLBACKS = {
@@ -189,3 +196,87 @@ class OmarchyTheme:
             file.write(css)
         os.replace(tmp_path, self._theme_path)
         log.info("Generated theme from %s", self._colors_path)
+
+
+def install_bar_plugin(source_dir: Path, marker: Path) -> None:
+    """Install the bar widget which stands in for the tray icon, and keep
+    it up to date. The first install also puts it in the bar and hides the
+    tray icon; once the user removes the plugin it stays removed."""
+
+    plugin_dir = OMARCHY_CONFIG / "plugins" / BAR_PLUGIN_ID
+    if plugin_dir.is_dir():
+        comparison = filecmp.dircmp(source_dir, plugin_dir)
+        if comparison.left_only or comparison.diff_files:
+            shutil.copytree(source_dir, plugin_dir, dirs_exist_ok=True)
+            log.info("Updated the Omarchy bar plugin")
+        return
+
+    if marker.exists():
+        return
+
+    try:
+        shutil.copytree(source_dir, plugin_dir)
+        marker.touch()
+    except OSError as error:
+        log.warning("Could not install the Omarchy bar plugin: %s", error)
+        return
+
+    log.info("Installed the Omarchy bar plugin")
+    command = "omarchy-shell shell rescanPlugins"
+    if not _enable_bar_plugin():
+        # Without a shell.json of its own the shell uses its defaults, which
+        # the CLI knows how to extend
+        command += f"; omarchy plugin enable {BAR_PLUGIN_ID}"
+    _spawn(["sh", "-c", command])
+
+
+def _enable_bar_plugin() -> bool:
+    """Adds the widget next to the tray and hides the tray icon, in one write
+    to shell.json, which the shell watches"""
+
+    config_path = OMARCHY_CONFIG / "shell.json"
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        layout = config["bar"]["layout"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+    widget = {"id": BAR_PLUGIN_ID}
+    placed = any(
+        isinstance(entry, dict) and entry.get("id") == BAR_PLUGIN_ID
+        for entries in layout.values()
+        if isinstance(entries, list)
+        for entry in entries
+    )
+    for entries in layout.values():
+        if not isinstance(entries, list):
+            continue
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict) or entry.get("id") != "omarchy.tray":
+                continue
+            hidden = entry.setdefault("hidden", [])
+            if TRAY_ITEM_ID not in hidden:
+                hidden.append(TRAY_ITEM_ID)
+            if TRAY_ITEM_ID in entry.get("pinned", []):
+                entry["pinned"].remove(TRAY_ITEM_ID)
+            if not placed:
+                entries.insert(index, widget)
+                placed = True
+            break
+
+    if not placed:
+        layout.setdefault("right", []).insert(0, widget)
+
+    fd, tmp_path = tempfile.mkstemp(dir=config_path.parent, prefix=".shell-")
+    with os.fdopen(fd, "w", encoding="utf-8") as file:
+        json.dump(config, file, indent=2, ensure_ascii=False)
+        file.write("\n")
+    os.replace(tmp_path, config_path)
+    return True
+
+
+def _spawn(argv: list[str]) -> None:
+    try:
+        Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE)
+    except GLib.Error as error:
+        log.warning("Could not run %s: %s", argv, error)

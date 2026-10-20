@@ -255,6 +255,15 @@ class GajimApplication(Adw.Application, CoreApplication):
 
         self.systray = TrayIcon()
 
+        from gajim.gtk.omarchy import install_bar_plugin
+        from gajim.gtk.omarchy import OmarchyTheme
+
+        if OmarchyTheme.is_available() and not app.is_flatpak():
+            install_bar_plugin(
+                configpaths.get("DATA") / "omarchy" / "omajim.status",
+                configpaths.get("MY_DATA") / "omarchy-bar-plugin",
+            )
+
         self._add_app_actions()
         accounts = app.settings.get_accounts()
         for account in accounts:
