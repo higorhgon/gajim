@@ -21,15 +21,18 @@ CONFIG_VALUES = {
 }
 
 CONFIG = Path("gajim/config.py.in")
-METAINFO = Path("data/io.github.higorhgon.Omajim.metainfo.xml.in")
-DESKTOP = Path("data/io.github.higorhgon.Omajim.desktop.in")
+# Sources keep Gajim's names, so changes from Gajim merge cleanly; the
+# build names its output after Omajim
+APP_ID = "io.github.higorhgon.Omajim"
+METAINFO = Path("data/org.gajim.Gajim.metainfo.xml.in")
+DESKTOP = Path("data/org.gajim.Gajim.desktop.in")
 METADATA = Path("dist/metadata")
 
-MAN_FILES = [Path("data/omajim.1"), Path("data/omajim-remote.1")]
+MAN_FILES = [Path("data/gajim.1"), Path("data/gajim-remote.1")]
 
 META_FILES = [
-    (Path("data/io.github.higorhgon.Omajim.desktop"), "--desktop"),
-    (Path("data/io.github.higorhgon.Omajim.metainfo.xml"), "--xml"),
+    (Path("data/org.gajim.Gajim.desktop"), "--desktop"),
+    (Path("data/org.gajim.Gajim.metainfo.xml"), "--xml"),
 ]
 
 ICONS = [
@@ -92,7 +95,7 @@ def build_man() -> None:
 
     for man_path in MAN_FILES:
         data = man_path.read_bytes()
-        man_file_name = man_path.name
+        man_file_name = man_path.name.replace("gajim", "omajim")
 
         man_out_path = METADATA / f"{man_file_name}.gz"
         log.info("Compress %s >> %s", man_file_name, man_out_path)
@@ -103,7 +106,7 @@ def build_man() -> None:
 
 def build_meta() -> None:
     for file_path, option in META_FILES:
-        out_path = METADATA / file_path.name
+        out_path = METADATA / file_path.name.replace("org.gajim.Gajim", APP_ID)
 
         log.info("Compile %s >> %s", file_path, out_path)
 
@@ -124,7 +127,7 @@ def build_meta() -> None:
 
 def build_app_icons() -> None:
     for file_path in ICONS:
-        icon_name = file_path.name.replace("gajim", "io.github.higorhgon.Omajim")
+        icon_name = file_path.name.replace("gajim", APP_ID)
         out_path = METADATA / icon_name
 
         log.info("Copy %s >> %s", file_path, out_path)
