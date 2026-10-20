@@ -370,7 +370,7 @@ class CoreApplication(ged.EventHelper):
 
         config: dict[str, str | int | bool] = {
             "address": str(address),
-            "resource": f"gajim.{get_random_string(8)}",
+            "resource": f"omajim.{get_random_string(8)}",
             "account_label": account_label,
             "anonymous_auth": anonymous,
         }

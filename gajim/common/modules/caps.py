@@ -55,7 +55,7 @@ class Caps(BaseModule):
             ),
         ]
 
-        self._identities = [DiscoIdentity(category="client", type="pc", name="Gajim")]
+        self._identities = [DiscoIdentity(category="client", type="pc", name="Omajim")]
 
         self._queued_tasks_by_hash: defaultdict[str, set[EntityCapsTask]] = defaultdict(
             set
@@ -186,7 +186,7 @@ class Caps(BaseModule):
 
         optional_features = get_optional_features(self._account)
         self.set_caps(
-            self._identities, COMMON_FEATURES + optional_features, "https://gajim.org"
+            self._identities, COMMON_FEATURES + optional_features, "https://github.com/higorhgon/omajim"
         )
 
         if not app.account_is_available(self._account):

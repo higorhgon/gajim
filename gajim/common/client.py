@@ -313,7 +313,7 @@ class Client(Observable, ClientModules):
             if error == "conflict":
                 # Reset resource
                 app.settings.set_account_setting(
-                    self._account, "resource", "gajim.$rand"
+                    self._account, "resource", "omajim.$rand"
                 )
             if error == "system-shutdown":
                 account_label = app.settings.get_account_setting(

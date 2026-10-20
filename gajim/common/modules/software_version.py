@@ -32,7 +32,7 @@ class SoftwareVersion(BaseModule):
         else:
             os_info = None
         self._nbxmpp("SoftwareVersion").set_software_version(
-            "Gajim", app.version, os_info
+            "Omajim", app.version, os_info
         )
         self._nbxmpp("SoftwareVersion").set_allow_reply_func(self._allow_reply)
 

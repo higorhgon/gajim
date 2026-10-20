@@ -239,7 +239,7 @@ class WindowsTrayIcon(TrayIconBackend):
         ]
 
         return pystray.Icon(
-            "Gajim", icon=self._get_icon("online"), menu=pystray.Menu(*menu_items)
+            "Omajim", icon=self._get_icon("online"), menu=pystray.Menu(*menu_items)
         )
 
     @staticmethod

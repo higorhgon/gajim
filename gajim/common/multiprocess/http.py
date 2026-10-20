@@ -31,7 +31,7 @@ from gajim.common.enum import FTState
 MIN_CHUNK_SIZE = 1024 * 100  # 100 KB
 DEFAULT_MAX_CONTENT_LENGTH = 1024 * 1024 * 10  # 10 MB
 NO_CONTENT_LENGTH_MAX_DOWNLOAD = 1024 * 1024  # 1 MB
-USER_AGENT = "Gajim 2.x"
+USER_AGENT = "Omajim 2.x"
 
 log = logging.getLogger("gajim.http")
 

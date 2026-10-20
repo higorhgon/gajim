@@ -157,11 +157,11 @@ class WindowsToastNotification(NotificationBackend):
             aumid = AppInfo.current.app_user_model_id
         else:
             # Non MS Store version has to register an AUMID manually
-            aumid = "Gajim.ToastNotification"
+            aumid = "Omajim.ToastNotification"
             self._register_notifier_aumid(aumid)
 
         self._toaster = InteractableWindowsToaster(
-            applicationText="Gajim", notifierAUMID=aumid
+            applicationText="Omajim", notifierAUMID=aumid
         )
 
     def _register_notifier_aumid(self, aumid: str) -> None:
@@ -185,7 +185,7 @@ class WindowsToastNotification(NotificationBackend):
 
         winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, key_path) as master_key:
-            winreg.SetValueEx(master_key, "DisplayName", 0, winreg.REG_SZ, "Gajim")
+            winreg.SetValueEx(master_key, "DisplayName", 0, winreg.REG_SZ, "Omajim")
             winreg.SetValueEx(
                 master_key, "IconUri", 0, winreg.REG_SZ, str(image_path.resolve())
             )

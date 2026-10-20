@@ -411,7 +411,7 @@ ACCOUNT_SETTINGS = {
         "publish_location": False,
         "publish_tune": False,
         "request_user_data": True,
-        "resource": "gajim.$rand",
+        "resource": "omajim.$rand",
         "restore_last_status": False,
         "roster_version": "",
         "savepass": True,
