@@ -22,9 +22,9 @@ Inclui:
   Pidgin, por conexão direta na rede local ou pelo servidor (IBB);
 - tema que segue o tema atual do [Omarchy](https://omarchy.org) e troca junto
   com ele;
-- no Omarchy, um widget na barra no lugar do ícone da bandeja: glifo da Nerd
-  Font na cor do tema, bolinha com a cor do status, clique para mostrar a
-  janela e clique direito para o menu. O Omajim instala o plugin
+- no Omarchy, um widget dentro da bandeja no lugar do ícone dela: glifo da
+  Nerd Font na cor do tema, bolinha com a cor do status, clique para mostrar a
+  janela e clique direito para o menu, com o status num submenu. O Omajim instala o plugin
   `omajim.status` em `~/.config/omarchy/plugins` na primeira vez que abre e o
   mantém atualizado; para tirá-lo, use `omarchy plugin remove omajim.status`
   e mostre o ícone da bandeja de novo pelo gerenciador da bandeja;

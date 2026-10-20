@@ -226,13 +226,13 @@ def install_bar_plugin(source_dir: Path, marker: Path) -> None:
     if not _enable_bar_plugin():
         # Without a shell.json of its own the shell uses its defaults, which
         # the CLI knows how to extend
-        command += f"; omarchy plugin enable {BAR_PLUGIN_ID}"
+        command += f"; omarchy plugin enable {BAR_PLUGIN_ID} --section tray"
     _spawn(["sh", "-c", command])
 
 
 def _enable_bar_plugin() -> bool:
-    """Adds the widget next to the tray and hides the tray icon, in one write
-    to shell.json, which the shell watches"""
+    """Adds the widget to the tray's section and hides the tray icon, in one
+    write to shell.json, which the shell watches"""
 
     config_path = OMARCHY_CONFIG / "shell.json"
     try:
@@ -251,7 +251,7 @@ def _enable_bar_plugin() -> bool:
     for entries in layout.values():
         if not isinstance(entries, list):
             continue
-        for index, entry in enumerate(entries):
+        for entry in entries:
             if not isinstance(entry, dict) or entry.get("id") != "omarchy.tray":
                 continue
             hidden = entry.setdefault("hidden", [])
@@ -259,13 +259,10 @@ def _enable_bar_plugin() -> bool:
                 hidden.append(TRAY_ITEM_ID)
             if TRAY_ITEM_ID in entry.get("pinned", []):
                 entry["pinned"].remove(TRAY_ITEM_ID)
-            if not placed:
-                entries.insert(index, widget)
-                placed = True
             break
 
     if not placed:
-        layout.setdefault("right", []).insert(0, widget)
+        layout.setdefault("tray", []).append(widget)
 
     fd, tmp_path = tempfile.mkstemp(dir=config_path.parent, prefix=".shell-")
     with os.fdopen(fd, "w", encoding="utf-8") as file:

@@ -123,70 +123,70 @@ BarWidget {
     color: root.statusColor
   }
 
-  // Omajim's tray menu, with its submenus (Status) laid out inline
+  // Omajim's tray menu, drawn like the tray's own: QsMenuEntry.display()
+  // needs a QApplication the shell doesn't have, so submenus (Status) open
+  // inside the card, each level with its own live opener
   property bool menuOpen: false
+  property var submenuStack: []
+  readonly property int submenuDepth: submenuStack.length
+  readonly property string currentTitle: submenuDepth > 0 ? submenuStack[submenuDepth - 1].title : ""
+  readonly property var currentChildren: submenuDepth > 0
+    ? submenuStack[submenuDepth - 1].opener.children
+    : menuOpener.children
+
+  // Swapping levels puts another row under a cursor that hasn't moved, so
+  // ignore row clicks for a beat after each change
+  property bool menuLevelSettling: false
 
   function close() { menuOpen = false }
+
+  function settleMenuLevel() {
+    menuLevelSettling = true
+    menuSettleTimer.restart()
+  }
+
+  function resetMenu() {
+    menuLevelSettling = false
+    menuSettleTimer.stop()
+    menuFlick.contentY = 0
+    // Deepest first: a child opener's entry belongs to its parent's model
+    var openers = submenuStack
+    submenuStack = []
+    for (var i = openers.length - 1; i >= 0; i--) openers[i].opener.destroy()
+  }
+
+  function enterSubmenu(entry, title) {
+    var opener = submenuOpenerComponent.createObject(root, { menu: entry })
+    if (!opener) return
+    var stack = submenuStack.slice()
+    stack.push({ opener: opener, title: title })
+    submenuStack = stack
+    settleMenuLevel()
+  }
+
+  function leaveSubmenu() {
+    if (submenuStack.length === 0) return
+    var stack = submenuStack.slice()
+    var top = stack.pop()
+    submenuStack = stack
+    top.opener.destroy()
+    settleMenuLevel()
+  }
 
   QsMenuOpener {
     id: menuOpener
     menu: root.trayItem ? root.trayItem.menu : null
   }
 
-  component MenuRow: Item {
-    id: row
-    required property var entry
-    property int indent: 0
+  Component {
+    id: submenuOpenerComponent
+    QsMenuOpener {}
+  }
 
-    width: parent ? parent.width : 0
-    implicitHeight: entry.isSeparator ? Style.space(11) : Style.space(30)
-    opacity: entry.enabled ? 1.0 : 0.45
-
-    Rectangle {
-      visible: row.entry.isSeparator
-      anchors.left: parent.left
-      anchors.leftMargin: Style.space(10)
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(10)
-      anchors.verticalCenter: parent.verticalCenter
-      height: 1
-      color: Color.popups.border
-      opacity: 0.45
-    }
-
-    Rectangle {
-      visible: !row.entry.isSeparator
-      anchors.fill: parent
-      radius: Math.max(2, Style.cornerRadius)
-      color: rowMouse.containsMouse && row.entry.enabled ? Style.hoverFillFor(button.foreground, button.foreground) : "transparent"
-    }
-
-    Text {
-      visible: !row.entry.isSeparator
-      anchors.verticalCenter: parent.verticalCenter
-      anchors.left: parent.left
-      anchors.leftMargin: Style.space(10 + row.indent)
-      anchors.right: parent.right
-      anchors.rightMargin: Style.space(10)
-      textFormat: Text.PlainText
-      text: (row.entry.checkState === Qt.Checked ? "  " : "") + String(row.entry.text || "")
-      color: button.foreground
-      font.family: button.fontFamily
-      font.pixelSize: Style.font.bodySmall
-      elide: Text.ElideRight
-    }
-
-    MouseArea {
-      id: rowMouse
-      anchors.fill: parent
-      hoverEnabled: true
-      enabled: !row.entry.isSeparator && row.entry.enabled
-      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-      onClicked: {
-        row.entry.triggered()
-        root.close()
-      }
-    }
+  Timer {
+    id: menuSettleTimer
+    interval: 250
+    onTriggered: root.menuLevelSettling = false
   }
 
   PopupCard {
@@ -195,51 +195,201 @@ BarWidget {
     owner: root
     bar: root.bar
     open: root.menuOpen
+    // Reset once the fade out is over, not mid-fade
+    onVisibleChanged: if (!visible) root.resetMenu()
     padding: Style.space(8)
     borderColor: Qt.rgba(button.foreground.r, button.foreground.g, button.foreground.b, 0.45)
     contentWidth: menuPopup.fittedContentWidth(Style.space(232))
-    contentHeight: menuPopup.fittedContentHeight(menuColumn.implicitHeight, Style.space(480))
+    contentHeight: menuPopup.fittedContentHeight(menuHeaderHeight + menuColumn.implicitHeight, Style.space(420))
 
-    Flickable {
+    readonly property int menuHeaderHeight: menuHeader.visible ? menuHeader.implicitHeight : 0
+
+    Column {
+      id: menuLayout
       anchors.fill: parent
-      contentWidth: width
-      contentHeight: menuColumn.implicitHeight
-      clip: true
-      boundsBehavior: Flickable.StopAtBounds
-      interactive: contentHeight > height
+      spacing: 0
 
-      ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
+      // Inside a submenu: its name, and the way back out
       Column {
-        id: menuColumn
-        width: parent.width
+        id: menuHeader
+        visible: root.submenuDepth > 0
+        width: menuLayout.width
+        spacing: 0
 
-        Repeater {
-          model: menuOpener.children
+        Item {
+          width: menuHeader.width
+          implicitHeight: Style.space(30)
 
-          delegate: Column {
-            id: group
-            required property var modelData
-            width: menuColumn.width
+          Rectangle {
+            anchors.fill: parent
+            radius: Math.max(2, Style.cornerRadius)
+            color: backMouse.containsMouse ? Style.hoverFillFor(button.foreground, button.foreground) : "transparent"
+          }
 
-            MenuRow {
-              entry: group.modelData
-              // A submenu's own row is its heading
-              enabled: !group.modelData.hasChildren
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            width: Style.space(22)
+            horizontalAlignment: Text.AlignHCenter
+            textFormat: Text.PlainText
+            text: I18n.rightToLeft ? "›" : "‹"
+            color: button.foreground
+            font.family: button.fontFamily
+            font.pixelSize: Style.font.bodySmall
+          }
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(28)
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(10)
+            textFormat: Text.PlainText
+            text: root.currentTitle
+            color: button.foreground
+            font.family: button.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            elide: Text.ElideRight
+          }
+
+          MouseArea {
+            id: backMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              if (root.menuLevelSettling) return
+              menuFlick.contentY = 0
+              root.leaveSubmenu()
             }
+          }
+        }
 
-            QsMenuOpener {
-              id: subOpener
-              menu: group.modelData.hasChildren ? group.modelData : null
-            }
+        Item {
+          width: menuHeader.width
+          implicitHeight: Style.space(11)
 
-            Repeater {
-              model: group.modelData.hasChildren ? subOpener.children : []
+          Rectangle {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.space(10)
+            anchors.right: parent.right
+            anchors.rightMargin: Style.space(10)
+            anchors.verticalCenter: parent.verticalCenter
+            height: 1
+            color: Color.popups.border
+            opacity: 0.45
+          }
+        }
+      }
 
-              delegate: MenuRow {
-                required property var modelData
-                entry: modelData
-                indent: 12
+      Flickable {
+        id: menuFlick
+        width: menuLayout.width
+        height: menuLayout.height - menuPopup.menuHeaderHeight
+        contentWidth: width
+        contentHeight: menuColumn.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        flickableDirection: Flickable.VerticalFlick
+        interactive: contentHeight > height
+
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+        Column {
+          id: menuColumn
+          width: menuFlick.width
+          spacing: 0
+
+          Repeater {
+            model: root.currentChildren
+
+            delegate: Item {
+              id: menuRow
+              required property var modelData
+
+              readonly property string rowText: String(modelData.text || "")
+
+              width: menuColumn.width
+              implicitHeight: modelData.isSeparator ? Style.space(11) : Style.space(30)
+              opacity: modelData.enabled ? 1.0 : 0.45
+
+              Rectangle {
+                visible: menuRow.modelData.isSeparator
+                anchors.left: parent.left
+                anchors.leftMargin: Style.space(10)
+                anchors.right: parent.right
+                anchors.rightMargin: Style.space(10)
+                anchors.verticalCenter: parent.verticalCenter
+                height: 1
+                color: Color.popups.border
+                opacity: 0.45
+              }
+
+              Rectangle {
+                visible: !menuRow.modelData.isSeparator
+                anchors.fill: parent
+                radius: Math.max(2, Style.cornerRadius)
+                color: rowMouse.containsMouse && menuRow.modelData.enabled ? Style.hoverFillFor(button.foreground, button.foreground) : "transparent"
+              }
+
+              Text {
+                visible: !menuRow.modelData.isSeparator && menuRow.modelData.buttonType !== QsMenuButtonType.None
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                width: Style.space(22)
+                horizontalAlignment: Text.AlignHCenter
+                textFormat: Text.PlainText
+                text: menuRow.modelData.checkState === Qt.Checked ? "" : ""
+                color: button.foreground
+                font.family: button.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              Text {
+                visible: !menuRow.modelData.isSeparator
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: Style.space(28)
+                anchors.right: submenuGlyph.left
+                anchors.rightMargin: Style.space(8)
+                textFormat: Text.PlainText
+                text: menuRow.rowText
+                color: button.foreground
+                font.family: button.fontFamily
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+              }
+
+              Text {
+                id: submenuGlyph
+                visible: !menuRow.modelData.isSeparator && menuRow.modelData.hasChildren
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.right: parent.right
+                anchors.rightMargin: Style.space(10)
+                textFormat: Text.PlainText
+                text: I18n.rightToLeft ? "‹" : "›"
+                color: button.foreground
+                font.family: button.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              MouseArea {
+                id: rowMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                enabled: !menuRow.modelData.isSeparator && menuRow.modelData.enabled
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: {
+                  if (root.menuLevelSettling) return
+                  if (menuRow.modelData.hasChildren) {
+                    // Before the swap, which destroys this delegate
+                    menuFlick.contentY = 0
+                    root.enterSubmenu(menuRow.modelData, menuRow.rowText)
+                  } else {
+                    menuRow.modelData.triggered()
+                    root.close()
+                  }
+                }
               }
             }
           }
