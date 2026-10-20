@@ -3,7 +3,7 @@
 
 pkgname=omajim-git
 _srcname=omajim
-pkgver=2.6.0.r23388.gfc0f5f356
+pkgver=2.6.0.r23389.g741455819
 pkgrel=1
 pkgdesc="Omajim: cliente XMPP baseado no Gajim, com transferência de arquivos SI (Pidgin) e tema do Omarchy"
 url="https://github.com/higorhgon/omajim"
@@ -42,6 +42,8 @@ pkgver() {
 
 build() {
 	cd "${_srcname}"
+	# Leftovers of an earlier build would end up in the package
+	rm -rf build dist ./*.egg-info gajim/data/locale
 	./make.py build --dist unix
 	python -m build --wheel --no-isolation
 }
