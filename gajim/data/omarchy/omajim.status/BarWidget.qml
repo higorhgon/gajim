@@ -100,7 +100,8 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.unread ? "󰭺" : "󰭹"
+    // nf-fa-message; new messages show in the accent color
+    text: "\uf27a"
     dimmed: root.status === "offline"
     active: root.unread
     activeColor: Color.accent
