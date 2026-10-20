@@ -11,7 +11,8 @@ thoughts or discuss the news with your groups.
 ## Este fork (Omajim)
 
 Fork do Gajim 2.6.0, exibido como **Omajim**, com ícone no estilo dos apps
-do Omarchy e ícone de bandeja que mostra o status numa bolinha colorida.
+do Omarchy e ícone de bandeja feito com glifos de chat da Nerd Font, que
+segue a cor do tema e muda de desenho conforme o status.
 Abre pelo lançador ou pelos comandos `omajim` e `gajim`; as contas e o
 histórico continuam em `~/.config/gajim` e `~/.local/share/gajim`.
 

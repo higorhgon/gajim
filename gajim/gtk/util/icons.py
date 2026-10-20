@@ -87,8 +87,9 @@ def get_tray_icon_name(name: str) -> str:
     if app.is_flatpak():
         prefix = app.get_default_app_id()
     elif sys.platform == "linux":
-        # Omajim tray icons, installed into the system icon theme
-        prefix = "omajim"
+        # Omajim tray icons, installed into the system icon theme. They are
+        # symbolic, so trays recolor them with the panel's foreground color
+        return f"omajim-status-{name}-symbolic"
     return f"{prefix}-status-{name}"
 
 
