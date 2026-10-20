@@ -13,23 +13,23 @@ logging.basicConfig(level="INFO", format="%(message)s")
 log = logging.getLogger(__name__)
 
 CONFIG_VALUES = {
-    "APP_ID": "org.gajim.Gajim",
+    "APP_ID": "io.github.higorhgon.Omajim",
     "APP_NAME": "Omajim",
-    "APP_ICON_NAME": "org.gajim.Gajim",
+    "APP_ICON_NAME": "io.github.higorhgon.Omajim",
     "FLATPAK": "False",
     "FLATPAK_NIGHTLY": "False",
 }
 
 CONFIG = Path("gajim/config.py.in")
-METAINFO = Path("data/org.gajim.Gajim.metainfo.xml.in")
-DESKTOP = Path("data/org.gajim.Gajim.desktop.in")
+METAINFO = Path("data/io.github.higorhgon.Omajim.metainfo.xml.in")
+DESKTOP = Path("data/io.github.higorhgon.Omajim.desktop.in")
 METADATA = Path("dist/metadata")
 
-MAN_FILES = [Path("data/gajim.1"), Path("data/gajim-remote.1")]
+MAN_FILES = [Path("data/omajim.1"), Path("data/omajim-remote.1")]
 
 META_FILES = [
-    (Path("data/org.gajim.Gajim.desktop"), "--desktop"),
-    (Path("data/org.gajim.Gajim.metainfo.xml"), "--xml"),
+    (Path("data/io.github.higorhgon.Omajim.desktop"), "--desktop"),
+    (Path("data/io.github.higorhgon.Omajim.metainfo.xml"), "--xml"),
 ]
 
 ICONS = [
@@ -46,23 +46,23 @@ ICONS = [
 ]
 
 INSTALL_FILES = {
-    "gajim-remote.1.gz": "share/man/man1",
-    "gajim.1.gz": "share/man/man1",
-    "org.gajim.Gajim.desktop": "share/applications",
-    "org.gajim.Gajim.metainfo.xml": "share/metainfo",
-    "org.gajim.Gajim-symbolic.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim.svg": "share/icons/hicolor/scalable/apps",
+    "omajim-remote.1.gz": "share/man/man1",
+    "omajim.1.gz": "share/man/man1",
+    "io.github.higorhgon.Omajim.desktop": "share/applications",
+    "io.github.higorhgon.Omajim.metainfo.xml": "share/metainfo",
+    "io.github.higorhgon.Omajim-symbolic.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim.svg": "share/icons/hicolor/scalable/apps",
 }
 
 INSTALL_FLATPAK_ICONS = {
-    "org.gajim.Gajim-status-away.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim-status-chat.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim-status-connecting.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim-status-dnd.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim-status-message-new.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim-status-offline.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim-status-online.svg": "share/icons/hicolor/scalable/apps",
-    "org.gajim.Gajim-status-xa.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-away.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-chat.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-connecting.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-dnd.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-message-new.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-offline.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-online.svg": "share/icons/hicolor/scalable/apps",
+    "io.github.higorhgon.Omajim-status-xa.svg": "share/icons/hicolor/scalable/apps",
 }
 
 
@@ -80,9 +80,9 @@ def configure_flatpak() -> None:
 
 
 def configure_flatpak_nightly() -> None:
-    CONFIG_VALUES["APP_ID"] = "org.gajim.Gajim.Devel"
+    CONFIG_VALUES["APP_ID"] = "io.github.higorhgon.Omajim.Devel"
     CONFIG_VALUES["APP_NAME"] = "Gajim (Nightly)"
-    CONFIG_VALUES["APP_ICON_NAME"] = "org.gajim.Gajim.Devel"
+    CONFIG_VALUES["APP_ICON_NAME"] = "io.github.higorhgon.Omajim.Devel"
     CONFIG_VALUES["FLATPAK"] = "True"
     CONFIG_VALUES["FLATPAK_NIGHTLY"] = "True"
 
@@ -124,7 +124,7 @@ def build_meta() -> None:
 
 def build_app_icons() -> None:
     for file_path in ICONS:
-        icon_name = file_path.name.replace("gajim", "org.gajim.Gajim")
+        icon_name = file_path.name.replace("gajim", "io.github.higorhgon.Omajim")
         out_path = METADATA / icon_name
 
         log.info("Copy %s >> %s", file_path, out_path)
@@ -142,7 +142,7 @@ def build_translations() -> None:
 
     for lang in langs:
         po_file = source_dir / "po" / f"{lang}.po"
-        mo_file = locale_dir / lang / "LC_MESSAGES" / "gajim.mo"
+        mo_file = locale_dir / lang / "LC_MESSAGES" / "omajim.mo"
         mo_file.parent.mkdir(parents=True, exist_ok=True)
 
         log.info("Compile %s >> %s", po_file, mo_file)
@@ -176,7 +176,7 @@ def rename(*, prefix: Path, files: dict[str, str], new_app_id: str) -> None:
     for file_name, path in files.items():
         dest_dir = prefix / path
         file = dest_dir / file_name
-        new_file_name = file_name.replace("org.gajim.Gajim", new_app_id)
+        new_file_name = file_name.replace("io.github.higorhgon.Omajim", new_app_id)
         new_file = dest_dir / new_file_name
         log.info("Rename File %s to %s", file, new_file)
         file.rename(new_file)
@@ -215,12 +215,12 @@ def cmd_install(args: argparse.Namespace) -> None:
 
     if args.dist == "flatpak-nightly":
         rename(
-            prefix=args.prefix, files=INSTALL_FILES, new_app_id="org.gajim.Gajim.Devel"
+            prefix=args.prefix, files=INSTALL_FILES, new_app_id="io.github.higorhgon.Omajim.Devel"
         )
         rename(
             prefix=args.prefix,
             files=INSTALL_FLATPAK_ICONS,
-            new_app_id="org.gajim.Gajim.Devel",
+            new_app_id="io.github.higorhgon.Omajim.Devel",
         )
 
 

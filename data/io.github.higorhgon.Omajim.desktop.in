@@ -5,7 +5,7 @@ GenericName=XMPP Chat Client
 Comment=A fully-featured XMPP chat client
 #Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
 Keywords=chat;messaging;im;xmpp;voip;gajim;omajim;
-Exec=gajim %u
+Exec=omajim %u
 Icon=@APP_ICON_NAME@
 StartupNotify=false
 SingleMainWindow=true
@@ -16,6 +16,6 @@ MimeType=x-scheme-handler/xmpp;
 Actions=StartChat;
 
 [Desktop Action StartChat]
-Exec=gajim --start-chat
+Exec=omajim --start-chat
 Name=Start a new chat
 Icon=@APP_ICON_NAME@

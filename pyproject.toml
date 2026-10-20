@@ -5,7 +5,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gajim"
+name = "omajim"
 description = "A GTK XMPP Client"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -54,11 +54,12 @@ sentry = [
 ]
 
 [project.urls]
-homepage = "https://gajim.org"
-repository = "https://dev.gajim.org/gajim/gajim"
+homepage = "https://github.com/higorhgon/omajim"
+repository = "https://github.com/higorhgon/omajim"
 
 [project.scripts]
 gajim-remote = "gajim.remote:run"
+omajim-remote = "gajim.remote:run"
 
 [project.gui-scripts]
 gajim = "gajim.main:run"

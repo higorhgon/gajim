@@ -13,7 +13,7 @@ BarWidget {
   id: root
   moduleName: "omajim.status"
 
-  readonly property string trayId: "org.gajim.Gajim"
+  readonly property string trayId: "io.github.higorhgon.Omajim"
 
   readonly property var trayItem: {
     var values = SystemTray.items.values

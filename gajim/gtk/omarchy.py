@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import filecmp
 import json
 import logging
@@ -28,7 +30,9 @@ THEME_NAME = "omarchy"
 
 OMARCHY_CONFIG = Path.home() / ".config/omarchy"
 BAR_PLUGIN_ID = "omajim.status"
-TRAY_ITEM_ID = "org.gajim.Gajim"
+TRAY_ITEM_ID = "io.github.higorhgon.Omajim"
+# The tray item id before Omajim had an app id of its own
+LEGACY_TRAY_ITEM_ID = "org.gajim.Gajim"
 
 # Colors older themes may not define, and the color used instead
 FALLBACKS = {
@@ -209,6 +213,7 @@ def install_bar_plugin(source_dir: Path, marker: Path) -> None:
         if comparison.left_only or comparison.diff_files:
             shutil.copytree(source_dir, plugin_dir, dirs_exist_ok=True)
             log.info("Updated the Omarchy bar plugin")
+        _migrate_tray_item_id()
         return
 
     if marker.exists():
@@ -264,12 +269,45 @@ def _enable_bar_plugin() -> bool:
     if not placed:
         layout.setdefault("tray", []).append(widget)
 
+    _write_shell_config(config_path, config)
+    return True
+
+
+def _migrate_tray_item_id() -> None:
+    """Keeps the tray icon hidden after the tray item id changed"""
+
+    config_path = OMARCHY_CONFIG / "shell.json"
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        layout = config["bar"]["layout"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return
+
+    changed = False
+    for entries in layout.values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict) or entry.get("id") != "omarchy.tray":
+                continue
+            for key in ("hidden", "pinned"):
+                ids = entry.get(key)
+                if isinstance(ids, list) and LEGACY_TRAY_ITEM_ID in ids:
+                    ids.remove(LEGACY_TRAY_ITEM_ID)
+                    if TRAY_ITEM_ID not in ids:
+                        ids.append(TRAY_ITEM_ID)
+                    changed = True
+
+    if changed:
+        _write_shell_config(config_path, config)
+
+
+def _write_shell_config(config_path: Path, config: dict[str, Any]) -> None:
     fd, tmp_path = tempfile.mkstemp(dir=config_path.parent, prefix=".shell-")
     with os.fdopen(fd, "w", encoding="utf-8") as file:
         json.dump(config, file, indent=2, ensure_ascii=False)
         file.write("\n")
     os.replace(tmp_path, config_path)
-    return True
 
 
 def _spawn(argv: list[str]) -> None:

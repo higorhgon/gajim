@@ -17,7 +17,9 @@ Abre pelo lançador ou pelos comandos `omajim` e `gajim`. Se já existir uma
 pasta `~/.config/gajim`, as contas e o histórico continuam nela e em
 `~/.local/share/gajim`; numa instalação nova, ficam em `~/.config/omajim` e
 `~/.local/share/omajim`. Para os contatos, o cliente se identifica como
-Omajim.
+Omajim. O ID do app é `io.github.higorhgon.Omajim` (arquivo `.desktop`,
+ícone e nome no D-Bus), e o controle remoto também atende por
+`omajim-remote`.
 
 Inclui:
 

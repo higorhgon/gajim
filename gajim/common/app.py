@@ -170,7 +170,7 @@ def is_ms_store() -> bool:
 
 
 def get_default_app_id() -> str:
-    app_id = "org.gajim.Gajim"
+    app_id = "io.github.higorhgon.Omajim"
     if is_flatpak_nightly():
         return f"{app_id}.Devel"
     return app_id

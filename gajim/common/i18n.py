@@ -21,7 +21,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
-DOMAIN = "gajim"
+DOMAIN = "omajim"
 
 # Gajim's strings name the app, which this fork shows as Omajim
 _APP_NAME = re.compile(r"\bGajim\b")

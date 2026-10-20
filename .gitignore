@@ -25,6 +25,7 @@ debian_build
 build
 dist
 gajim.egg-info
+omajim.egg-info
 win/_build_root
 venv/
 .venv/

@@ -18,7 +18,7 @@ log = logging.getLogger()
 
 OBJ_PATH = "/org/gajim/dbus/RemoteObject"
 INTERFACE = "org.gajim.dbus.RemoteInterface"
-SERVICE = "org.gajim.Gajim"
+SERVICE = "io.github.higorhgon.Omajim"
 
 SIGNATURES = {
     "list_contacts": "(s)",
@@ -118,7 +118,7 @@ def run() -> None:
             log.error(
                 "Service not found. Check if Gajim is running. "
                 "If Gajim is running under a custom profile use "
-                "--app-id=org.gajim.Gajim.myprofilename"
+                "--app-id=io.github.higorhgon.Omajim.myprofilename"
             )
 
         else:

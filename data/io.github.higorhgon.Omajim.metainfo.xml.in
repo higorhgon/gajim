@@ -38,7 +38,7 @@
   <url type="donation">https://gajim.org/#donate</url>
   <url type="translate">https://dev.gajim.org/gajim/gajim/-/wikis/development/devtranslate</url>
   <url type="contribute">https://dev.gajim.org/gajim/gajim/-/wikis/development/IWantToStartHacking</url>
-  <translation type="gettext">gajim</translation>
+  <translation type="gettext">omajim</translation>
   <content_rating type="oars-1.1">
     <content_attribute id="social-chat">intense</content_attribute>
     <content_attribute id="social-audio">intense</content_attribute>
