@@ -153,11 +153,27 @@ class ConfigPaths:
             path = self._prepare(path)
         self._paths[name] = (location, path, path_type)
 
+    def _get_root_folder(self) -> str:
+        # Keep using an existing Gajim folder, so its accounts and history
+        # carry over; a new install gets Omajim's own folder
+        legacy_folder = "gajim"
+        root_folder = "omajim"
+        if self.user_profile:
+            legacy_folder = f"gajim.{self.user_profile}"
+            root_folder = f"omajim.{self.user_profile}"
+
+        if sys.platform == "win32":
+            legacy_path = Path(os.environ["APPDATA"]) / legacy_folder.capitalize()
+        else:
+            legacy_path = Path(GLib.get_user_config_dir()) / legacy_folder
+
+        if legacy_path.exists():
+            return legacy_folder
+        return root_folder
+
     def init(self):
 
-        root_folder = "gajim"
-        if self.user_profile:
-            root_folder = f"gajim.{self.user_profile}"
+        root_folder = self._get_root_folder()
 
         if sys.platform == "win32":
             if gajim.IS_PORTABLE:
@@ -221,7 +237,7 @@ class ConfigPaths:
             assert download_dir is not None
             path = (
                 "DOWNLOADS",
-                Path(download_dir) / "Gajim",
+                Path(download_dir) / root_folder.split(".")[0].capitalize(),
                 PathLocation.NONE,
                 PathType.FOLDER,
             )

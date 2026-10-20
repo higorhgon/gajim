@@ -13,8 +13,11 @@ thoughts or discuss the news with your groups.
 Fork do Gajim 2.6.0, exibido como **Omajim**, com ícone no estilo dos apps
 do Omarchy e ícone de bandeja feito com glifos de chat da Nerd Font, que
 segue a cor do tema e muda de desenho conforme o status.
-Abre pelo lançador ou pelos comandos `omajim` e `gajim`; as contas e o
-histórico continuam em `~/.config/gajim` e `~/.local/share/gajim`.
+Abre pelo lançador ou pelos comandos `omajim` e `gajim`. Se já existir uma
+pasta `~/.config/gajim`, as contas e o histórico continuam nela e em
+`~/.local/share/gajim`; numa instalação nova, ficam em `~/.config/omajim` e
+`~/.local/share/omajim`. Para os contatos, o cliente se identifica como
+Omajim.
 
 Inclui:
 
