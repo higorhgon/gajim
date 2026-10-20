@@ -15,6 +15,7 @@ from gajim.common.const import DEVELOPERS
 from gajim.common.const import MAINTAINERS
 from gajim.common.const import THANKS
 from gajim.common.i18n import _
+from gajim.common.i18n import upstream_
 from gajim.common.util.app import get_extended_app_version
 from gajim.common.util.version import get_glib_version
 from gajim.common.util.version import get_gobject_version
@@ -37,7 +38,7 @@ class AboutDialog:
         dialog = Adw.AboutDialog(
             application_name="Omajim",
             application_icon="gajim",
-            comments=_("Based on Gajim"),
+            comments=upstream_("Based on Gajim"),
             version=get_extended_app_version(),
             copyright="Copyright © 2003-2026 Gajim Team",
             license_type=Gtk.License.GPL_3_0_ONLY,

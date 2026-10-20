@@ -1688,9 +1688,8 @@ msgstr "Desabilitar Conta?"
 msgid "Disable Check"
 msgstr "Desabilitado"
 
-#, fuzzy
 msgid "Disable Update"
-msgstr "Desabilitado"
+msgstr "Desativar atualização"
 
 msgid "Disabled"
 msgstr "Desabilitado"
@@ -2289,6 +2288,8 @@ msgid ""
 "Gajim can automatically update your profile with your current timezone. This "
 "may help your contacts when they try to reach you."
 msgstr ""
+"O Gajim pode atualizar automaticamente o seu perfil com o seu fuso horário "
+"atual. Isso pode ajudar seus contatos quando tentarem falar com você."
 
 msgid ""
 "Gajim encountered an error.\n"
@@ -3109,9 +3110,8 @@ msgstr "Sem Sincronia"
 msgid "No Threshold"
 msgstr "Sem Limite"
 
-#, fuzzy
 msgid "No Timezone"
-msgstr "Tempo"
+msgstr "Sem fuso horário"
 
 msgid "No account password found, unlocking not possible"
 msgstr ""
@@ -5283,9 +5283,8 @@ msgctxt "Profile"
 msgid "Timezone"
 msgstr "Tempo"
 
-#, fuzzy
 msgid "Timezone Update"
-msgstr "Tempo"
+msgstr "Atualização do fuso horário"
 
 msgctxt "Profile"
 msgid "Title"
@@ -5497,9 +5496,8 @@ msgstr "Atualizar"
 msgid "Update Avatar"
 msgstr "Atualizar Avatar"
 
-#, fuzzy
 msgid "Update Timezone"
-msgstr "Tempo"
+msgstr "Atualizar fuso horário"
 
 msgid "Update automatically"
 msgstr "Atualizar automaticamente"

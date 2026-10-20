@@ -6,10 +6,8 @@ from typing import Any
 
 import functools
 import logging
-import sys
 import xml.etree.ElementTree as ET
 
-from gi.repository import Gio
 from gi.repository import Gtk
 
 from gajim.common import configpaths
@@ -56,18 +54,14 @@ class GajimBuilder:
     def _load_string_from_filename(filename: str, gettext_: Any) -> str:
         file_path = str(configpaths.get("GUI") / filename)
 
-        if sys.platform == "win32":
-            # This is a workaround for non working translation on Windows
-            tree = ET.parse(file_path)
-            for node in tree.findall(".//*[@translatable='yes']"):
-                node.text = gettext_(node.text) if node.text else ""
-                del node.attrib["translatable"]
+        # Translate here rather than in GTK, which works around non working
+        # translation on Windows and shows the app's name as Omajim
+        tree = ET.parse(file_path)
+        for node in tree.findall(".//*[@translatable='yes']"):
+            node.text = i18n.rebrand(gettext_(node.text)) if node.text else ""
+            del node.attrib["translatable"]
 
-            return ET.tostring(tree.getroot(), encoding="unicode", method="xml")
-
-        file = Gio.File.new_for_path(file_path)
-        content = file.load_contents(None)
-        return content[1].decode()
+        return ET.tostring(tree.getroot(), encoding="unicode", method="xml")
 
     def __getattr__(self, name: str) -> Any:
         try:

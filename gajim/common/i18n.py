@@ -16,11 +16,19 @@ import gettext
 import importlib.resources
 import locale
 import os
+import re
 import sys
 import unicodedata
 from pathlib import Path
 
 DOMAIN = "gajim"
+
+# Gajim's strings name the app, which this fork shows as Omajim
+_APP_NAME = re.compile(r"\bGajim\b")
+
+
+def rebrand(text: str) -> str:
+    return _APP_NAME.sub("Omajim", text)
 
 
 def init() -> None:
@@ -53,7 +61,12 @@ def is_rtl_text(text: str) -> bool:
 
 
 def ngettext(s_sing: str, s_plural: str, n: int) -> str:
-    return _trans.translation.ngettext(s_sing, s_plural, n)
+    return rebrand(_trans.translation.ngettext(s_sing, s_plural, n))
+
+
+def upstream_(message: str) -> str:
+    """Translates without rebranding, for strings about Gajim itself"""
+    return _trans.translation.gettext(message)
 
 
 class Translation:
@@ -123,9 +136,17 @@ class Translation:
 
     def install(self) -> None:
         global _, g_, p_
-        _ = self.translation.gettext
-        g_ = self.translation.gettext
-        p_ = self.translation.pgettext
+        translation = self.translation
+
+        def gettext_(message: str) -> str:
+            return rebrand(translation.gettext(message))
+
+        def pgettext_(context: str, message: str) -> str:
+            return rebrand(translation.pgettext(context, message))
+
+        _ = gettext_
+        g_ = gettext_
+        p_ = pgettext_
 
 
 _trans = Translation()
