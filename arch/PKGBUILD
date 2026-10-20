@@ -3,7 +3,7 @@
 
 pkgname=omajim-git
 _srcname=omajim
-pkgver=2.6.0.r23379.gba46ee6d7
+pkgver=2.6.0.r23388.gfc0f5f356
 pkgrel=1
 pkgdesc="Omajim: cliente XMPP baseado no Gajim, com transferência de arquivos SI (Pidgin) e tema do Omarchy"
 url="https://github.com/higorhgon/omajim"
