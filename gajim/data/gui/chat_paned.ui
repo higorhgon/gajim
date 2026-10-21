@@ -3,7 +3,7 @@
   <requires lib="gtk" version="4.0"/>
   <template class="ChatPage" parent="GtkPaned">
     <property name="shrink-start-child">1</property>
-    <property name="resize-start-child">1</property>
+    <property name="resize-start-child">0</property>
     <property name="focusable">1</property>
     <property name="position">250</property>
     <property name="position-set">1</property>

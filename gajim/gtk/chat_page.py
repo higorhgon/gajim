@@ -59,12 +59,12 @@ class ChatPage(Gtk.Paned):
     def __init__(self):
         Gtk.Paned.__init__(self)
 
-        self.set_position(app.settings.get("chat_handle_position"))
-
         self._restore_occupants_list = False
         self._startup_finished: bool = False
         self._narrow = False
         self._closed_chat_memory: list[tuple[str, JID, str]] = []
+
+        self.set_position(app.settings.get("chat_handle_position"))
 
         self._chat_control = self._chat_stack.get_chat_control()
 
@@ -143,6 +143,13 @@ class ChatPage(Gtk.Paned):
 
     @Gtk.Template.Callback()
     def _on_handle_position_notify(self, paned: Gtk.Paned, *args: Any) -> None:
+        # GTK also moves the handle by itself, e.g. while the conversation is
+        # hidden in the narrow layout. Only remember the position the user set.
+        end_child = paned.get_end_child()
+        assert end_child is not None
+        if self._narrow or not end_child.get_visible():
+            return
+
         position = paned.get_position()
         app.settings.set("chat_handle_position", position)
 
