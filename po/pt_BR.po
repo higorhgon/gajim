@@ -7602,6 +7602,10 @@ msgstr "Este arquivo não está mais disponível"
 msgid "File not found"
 msgstr "Arquivo não encontrado"
 
+#, python-format
+msgid "%s wants to send you a file"
+msgstr "%s quer enviar um arquivo para você"
+
 #, fuzzy
 #~ msgid "Send Files Directly"
 #~ msgstr "Enviar Arquivo Diretamente…"

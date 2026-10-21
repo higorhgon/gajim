@@ -300,6 +300,7 @@ class GioNotification(NotificationBackend):
         "muc-invitation",
         "incoming-call",
         "incoming-message",
+        "file-transfer",
         "subscription-request",
         "reaction-updated",
     ]
@@ -372,13 +373,14 @@ class GioNotification(NotificationBackend):
         if event.type in ("connection-failed", "server-shutdown"):
             return self._make_id([event.type, event.account])
 
-        if event.type == "incoming-message":
+        if event.type in ("incoming-message", "file-transfer"):
+            # Withdrawn together with the messages once the chat is read
             return self._make_id(["new-message", event.account, str(event.jid)])
 
         return None
 
     def _make_icon(self, event: events.Notification) -> Gio.Icon | None:
-        if event.type == "incoming-message":
+        if event.type in ("incoming-message", "file-transfer"):
             assert event.jid is not None
 
             if app.is_flatpak():

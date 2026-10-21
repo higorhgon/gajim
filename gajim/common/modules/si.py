@@ -190,7 +190,7 @@ class SI(BaseModule):
         fp.file_name = self._get_save_path(filename, sid)
 
         sender_bare = JID.from_string(from_jid).new_as_bare()
-        self._store_transfer(fp, sender_bare, ChatDirection.INCOMING)
+        message_id = self._store_transfer(fp, sender_bare, ChatDirection.INCOMING)
 
         app.ged.raise_event(
             ged_events.FileRequestReceivedEvent(
@@ -201,6 +201,7 @@ class SI(BaseModule):
                 account=self._account,
                 jid=sender_bare,
                 file_props=fp,
+                message_id=message_id,
             )
         )
 
@@ -506,7 +507,7 @@ class SI(BaseModule):
 
     def _store_transfer(
         self, fp: FileProp, remote_jid: JID, direction: ChatDirection
-    ) -> None:
+    ) -> str:
         resource = None
         if direction == ChatDirection.INCOMING:
             resource = JID.from_string(fp.sender).resource
@@ -533,6 +534,7 @@ class SI(BaseModule):
             app.storage.archive.insert_object(message_data)
         except Exception as exc:
             self._log.warning("Failed to store SI transfer in archive: %s", exc)
+        return message_data.id
 
     @staticmethod
     def _get_save_path(filename: str, sid: str) -> str:

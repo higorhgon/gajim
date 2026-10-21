@@ -1529,6 +1529,29 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
         if not self.chat_exists(event.account, event.jid):
             self.add_chat(event.account, event.jid, "chat")
 
+        if self.is_chat_active(event.account, event.jid):
+            return
+
+        client = app.get_client(event.account)
+        contact = client.get_module("Contacts").get_contact(event.jid)
+        file_props = event.file_props
+        text = file_props.name or ""
+        if file_props.size:
+            text = f"{text} ({GLib.format_size(file_props.size)})"
+
+        self.set_urgency_hint(True)
+        app.ged.raise_event(
+            events.Notification(
+                context_id="",
+                account=event.account,
+                jid=event.jid,
+                type="file-transfer",
+                title=_("%s wants to send you a file") % contact.name,
+                text=text,
+                sound="first_message_received",
+            )
+        )
+
     def start_shutdown(self) -> None:
         self.show_toast(Adw.Toast(title=_("Gajim is quitting…"), timeout=0))
         app.ged.raise_event(events.PrepareForShutdown())
