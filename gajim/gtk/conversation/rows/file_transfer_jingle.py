@@ -40,6 +40,7 @@ from gajim.gtk.builder import get_builder
 from gajim.gtk.conversation.rows.base import BaseRow
 from gajim.gtk.conversation.rows.widgets import DateTimeLabel
 from gajim.gtk.conversation.rows.widgets import NicknameLabel
+from gajim.gtk.preview.file_offer import FileOfferWidget
 from gajim.gtk.util.misc import open_file
 
 TransferEventT = FileRequestReceivedEvent | FileRequestSent
@@ -85,6 +86,9 @@ class FileTransferJingleRow(BaseRow, EventHelper):
                 fp.file_name = file_transfer.path
                 fp.size = file_transfer.size
                 fp.completed = file_transfer.path is not None
+                if message.direction == ChatDirection.INCOMING:
+                    # The path is stored with the offer, check the file arrived
+                    fp.completed = _is_received(file_transfer.path, fp.size)
                 self._file_props = fp
             self.pk = message.pk
         else:
@@ -146,8 +150,24 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         self.grid.attach(meta_box, 1, 0, 1, 1)
 
         self._ui = get_builder("file_transfer_jingle.ui")
-        self.grid.attach(self._ui.transfer_box, 1, 1, 1, 1)
-        self._ui.transfer_box.set_halign(Gtk.Align.START)
+
+        # Received files are shown like the ones downloaded from the server
+        self._offer = None
+        if is_self and self._file_props is not None and self._file_props.file_name:
+            assert self._file_props.name is not None
+            self._offer = FileOfferWidget(
+                self._file_props.name,
+                self._file_props.size or 0,
+                Path(self._file_props.file_name),
+            )
+            self._offer.set_halign(Gtk.Align.START)
+            self._connect(self._offer, "download", self._on_accept_file_request)
+            self._connect(self._offer, "reject", self._on_reject_file_request)
+            self._connect(self._offer, "cancel", self._on_cancel_transfer)
+            self.grid.attach(self._offer, 1, 1, 1, 1)
+        else:
+            self.grid.attach(self._ui.transfer_box, 1, 1, 1, 1)
+            self._ui.transfer_box.set_halign(Gtk.Align.START)
 
         self._connect(
             self._ui.accept_file_request, "clicked", self._on_accept_file_request
@@ -164,7 +184,9 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         )
         self._connect(self._ui.cancel_transfer, "clicked", self._on_cancel_transfer)
 
-        if message is not None:
+        if self._offer is not None:
+            self._reconstruct_offer(from_archive=message is not None)
+        elif message is not None:
             self._reconstruct_transfer()
         else:
             assert event is not None
@@ -214,6 +236,71 @@ class FileTransferJingleRow(BaseRow, EventHelper):
 
         self._ui.transfer_action.set_text(_("File Offered…"))
 
+    def _reconstruct_offer(self, from_archive: bool) -> None:
+        assert self._offer is not None
+        assert self._file_props is not None
+        fp = self._file_props
+
+        live = not from_archive or FilesProp.getFilePropBySid(fp.sid) is fp
+
+        if fp.completed:
+            self._offer.show_completed()
+        elif fp.error is not None:
+            self._show_offer_error(fp)
+        elif fp.stopped:
+            self._offer.show_error(_("File Transfer Stopped"))
+        elif self._client.get_module("SI").is_pending(fp.sid):
+            self._offer.show_offer()
+        elif live:
+            self._offer.show_waiting(_("Waiting…"))
+        else:
+            # Offers do not survive a restart, the sender has to send again
+            self._offer.show_offer(
+                available=False, message=_("This file is no longer available")
+            )
+
+    def _process_offer_event(self, event: TransferEventT) -> None:
+        assert self._offer is not None
+        assert self._file_props is not None
+
+        if isinstance(event, JingleErrorReceived | JingleFtCancelledReceived):
+            if event.sid != self._file_props.sid:
+                return
+            self._offer.show_error(_("File Transfer Cancelled"))
+            return
+
+        if event.file_props.sid != self._file_props.sid:
+            return
+
+        if isinstance(event, FileCompleted):
+            self._offer.show_completed()
+        elif isinstance(event, FileProgress):
+            size = event.file_props.size
+            received = event.file_props.received_len
+            if size and received is not None:
+                self._offer.update_progress(received / size)
+        elif isinstance(event, FileHashError):
+            self._offer.show_error(_("File corrupted during transfer"))
+        elif isinstance(event, FileError):
+            self._show_offer_error(event.file_props)
+        elif isinstance(event, FileRequestError | FileSendError):
+            error_text = (
+                _("Connection with %s could not be established.") % self._contact.name
+            )
+            if event.error_msg:
+                error_text = f"{error_text} ({event.error_msg})"
+            self._offer.show_error(error_text)
+
+    def _show_offer_error(self, file_props: FileProp) -> None:
+        assert self._offer is not None
+        if file_props.error == -1:
+            text = _("%s stopped the transfer") % self._contact.name
+        elif file_props.error == -6:
+            text = _("Error opening file")
+        else:
+            text = _("An error occurred")
+        self._offer.show_error(text)
+
     def _display_transfer_info(self, event_name: str) -> None:
         if event_name == "file-request-sent":
             self._ui.action_stack.set_visible_child_name("progress")
@@ -249,6 +336,10 @@ class FileTransferJingleRow(BaseRow, EventHelper):
 
     def process_event(self, event: TransferEventT) -> None:
         assert self._file_props is not None
+
+        if self._offer is not None:
+            self._process_offer_event(event)
+            return
 
         if isinstance(event, JingleErrorReceived):
             if event.sid != self._file_props.sid:
@@ -360,19 +451,24 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         self._ui.action_stack.set_visible_child_name("complete")
         self._ui.transfer_action.set_text(_("File Transfer Completed"))
 
-    def _on_accept_file_request(self, _button: Gtk.Button) -> None:
+    def _on_accept_file_request(self, _widget: Gtk.Widget) -> None:
         assert self._file_props is not None
         if self._file_props.session_type == "si":
             self._client.get_module("SI").accept_transfer(self._file_props.sid)
         self._start_time = time.time()
+        if self._offer is not None:
+            # Nothing arrives until the connection to the sender is up
+            self._offer.show_waiting(_("Waiting…"))
 
-    def _on_reject_file_request(self, _button: Gtk.Button) -> None:
+    def _on_reject_file_request(self, _widget: Gtk.Widget) -> None:
         assert self._file_props is not None
         if self._file_props.session_type == "si":
             self._client.get_module("SI").reject_transfer(self._file_props.sid)
         else:
             self._client.get_module("Bytestream").send_file_rejection(self._file_props)
         self._file_props.stopped = True
+        if self._offer is not None:
+            self._offer.show_error(_("You cancelled the transfer"))
         self._ui.action_stack.set_visible_child_name("rejected")
         self._ui.transfer_action.set_text(_("File Transfer Cancelled"))
 
@@ -401,11 +497,13 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         #     self._contact.jid, self._file_props, self._account
         # )
 
-    def _on_cancel_transfer(self, _button: Gtk.Button) -> None:
+    def _on_cancel_transfer(self, _widget: Gtk.Widget) -> None:
         assert self._file_props is not None
         if self._file_props.session_type == "si":
             self._client.get_module("SI").cancel_transfer(self._file_props.sid)
         self._file_props.stopped = True
+        if self._offer is not None:
+            self._offer.show_error(_("You cancelled the transfer"))
         self._ui.action_stack.set_visible_child_name("rejected")
         self._ui.transfer_action.set_text(_("File Transfer Cancelled"))
 
@@ -416,3 +514,12 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         #     file_transfers.window.present()
         # else:
         #     file_transfers.window.show_all()
+
+
+def _is_received(path: str | None, size: int | None) -> bool:
+    if path is None:
+        return False
+    try:
+        return Path(path).stat().st_size == size
+    except OSError:
+        return False

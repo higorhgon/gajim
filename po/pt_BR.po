@@ -7596,6 +7596,12 @@ msgstr "Baseado no Gajim"
 msgid "Help"
 msgstr "Ajuda"
 
+msgid "This file is no longer available"
+msgstr "Este arquivo não está mais disponível"
+
+msgid "File not found"
+msgstr "Arquivo não encontrado"
+
 #, fuzzy
 #~ msgid "Send Files Directly"
 #~ msgstr "Enviar Arquivo Diretamente…"

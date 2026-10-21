@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import uuid
@@ -21,6 +22,7 @@ from nbxmpp.structs import IqProperties
 from nbxmpp.structs import StanzaHandler
 
 from gajim.common import app
+from gajim.common import configpaths
 from gajim.common import events as ged_events
 from gajim.common import types
 from gajim.common.file_props import FileProp
@@ -33,6 +35,7 @@ from gajim.common.storage.archive.const import ChatDirection
 from gajim.common.storage.archive.const import MessageState
 from gajim.common.storage.archive.const import MessageType
 from gajim.common.util.datetime import utc_now
+from gajim.common.util.filesystem import sanitize_filename
 from gajim.common.util.preview import guess_mime_type
 
 NS_SI = "http://jabber.org/protocol/si"
@@ -270,6 +273,9 @@ class SI(BaseModule):
             return
         self._accept_si(pending["from_jid"], pending["iq_id"], sid, pending["transport"])
 
+    def is_pending(self, sid: str) -> bool:
+        return sid in self._pending
+
     def reject_transfer(self, sid: str) -> None:
         pending = self._pending.pop(sid, None)
         if pending is not None:
@@ -458,12 +464,10 @@ class SI(BaseModule):
 
     @staticmethod
     def _get_save_path(filename: str, sid: str) -> str:
-        save_dir = app.settings.get("last_save_dir")
-        if not save_dir:
-            save_dir = str(Path.home() / "Downloads")
-        os.makedirs(save_dir, exist_ok=True)
-        path = os.path.join(save_dir, filename)
-        if os.path.exists(path):
-            base, ext = os.path.splitext(filename)
-            path = os.path.join(save_dir, f"{base}_{sid[:8]}{ext}")
-        return path
+        # Same folder and naming scheme as files downloaded from the server
+        # (see get_image_paths), so both offer the same "Save as" afterwards
+        save_dir = configpaths.get("DOWNLOADS")
+        save_dir.mkdir(parents=True, exist_ok=True)
+        path = Path(sanitize_filename(filename))
+        name_hash = hashlib.sha1(sid.encode()).hexdigest()
+        return str(save_dir / f"{path.stem}_{name_hash}{path.suffix}")
