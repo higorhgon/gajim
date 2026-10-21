@@ -690,7 +690,17 @@ class ChatList(Gtk.ListBox, EventHelper, SignalManager):
             return
         row.set_timestamp(datetime.now().astimezone())
         row.set_nick("")
-        row.set_message_text(_("File"), icon_name="lucide-paperclip-symbolic")
+        file_name = event.file_props.name or _("File")
+        row.set_message_text(file_name, icon_name="lucide-paperclip-symbolic")
+
+        # Count the offer as unread, like a message, so the chat, its
+        # workspace and the tray show it
+        if event.message_id is not None and not app.window.is_chat_active(
+            event.account, event.jid
+        ):
+            row.set_message_id(event.message_id)
+            row.add_unread(file_name)
+        row.changed()
 
     def _on_account_changed(self, *args: Any) -> None:
         for row in self._iterate_rows():

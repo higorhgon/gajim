@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import hashlib
 import logging
 import os
@@ -30,6 +32,7 @@ from gajim.common.file_props import FilesProp
 from gajim.common.glib_idlequeue import GLibIdleQueue
 from gajim.common.modules.base import BaseModule
 from gajim.common.socks5 import SocksQueue
+from gajim.common.socks5_proxy import Socks5ProxySender
 from gajim.common.storage.archive import models as mod
 from gajim.common.storage.archive.const import ChatDirection
 from gajim.common.storage.archive.const import MessageState
@@ -187,7 +190,7 @@ class SI(BaseModule):
         fp.file_name = self._get_save_path(filename, sid)
 
         sender_bare = JID.from_string(from_jid).new_as_bare()
-        self._store_transfer(fp, sender_bare, ChatDirection.INCOMING)
+        message_id = self._store_transfer(fp, sender_bare, ChatDirection.INCOMING)
 
         app.ged.raise_event(
             ged_events.FileRequestReceivedEvent(
@@ -198,6 +201,7 @@ class SI(BaseModule):
                 account=self._account,
                 jid=sender_bare,
                 file_props=fp,
+                message_id=message_id,
             )
         )
 
@@ -321,6 +325,75 @@ class SI(BaseModule):
             # Offer not answered yet, or waiting for the receiver to connect
             self._con.get_module("Bytestream").remove_transfer(fp)
 
+    def send_via_proxy(self, fp: FileProp, proxy: dict[str, Any]) -> None:
+        """
+        The receiver could not reach us and connected to the server's proxy,
+        connect there as well and stream the file through it
+        """
+        assert fp.sha_str is not None
+        assert fp.file_name is not None
+        self._log.info("Sending %s through proxy %s", fp.name, proxy["jid"])
+
+        def _on_connected() -> None:
+            iq = nbxmpp.Iq(typ="set", to=proxy["jid"], queryNS=Namespace.BYTESTREAM)
+            query = iq.getQuery()
+            query.setAttr("sid", fp.sid)
+            query.setTagData("activate", fp.receiver)
+            self._con.connection.send_stanza(iq, callback=_on_activated)
+
+        def _on_activated(_client: types.NBXMPPClient, stanza: Iq) -> None:
+            if fp.stopped:
+                sender.cancel()
+                return
+            if not nbxmpp.isResultNode(stanza):
+                sender.cancel()
+                _on_error(f"Proxy did not activate the transfer: {stanza.getError()}")
+                return
+            fp.started = True
+            fp.received_len = 0
+            sender.send_file()
+
+        def _on_progress(sent: int) -> None:
+            fp.received_len = sent
+            app.ged.raise_event(ged_events.FileProgress(file_props=fp))
+
+        def _on_finished() -> None:
+            self._log.info("File sent through proxy: %s", fp.name)
+            fp.completed = True
+            fp.connected = False
+            app.ged.raise_event(
+                ged_events.FileCompleted(
+                    account=self._account, file_props=fp, jid=fp.receiver
+                )
+            )
+
+        def _on_error(message: str) -> None:
+            if fp.stopped:
+                return
+            fp.connected = False
+            app.ged.raise_event(
+                ged_events.FileSendError(
+                    account=self._account,
+                    file_props=fp,
+                    jid=JID.from_string(fp.receiver).bare,
+                    error_msg=message,
+                )
+            )
+
+        sender = Socks5ProxySender(
+            proxy["host"],
+            int(proxy["port"]),
+            fp.sha_str,
+            Path(fp.file_name),
+            on_connected=_on_connected,
+            on_progress=_on_progress,
+            on_finished=_on_finished,
+            on_error=_on_error,
+        )
+        fp.connected = True
+        fp.disconnect_cb = sender.cancel
+        sender.start()
+
     def send_file(self, jid: JID, path: Path) -> None:
         """
         Offer a file to a resource of a contact, the transfer starts once
@@ -434,7 +507,7 @@ class SI(BaseModule):
 
     def _store_transfer(
         self, fp: FileProp, remote_jid: JID, direction: ChatDirection
-    ) -> None:
+    ) -> str:
         resource = None
         if direction == ChatDirection.INCOMING:
             resource = JID.from_string(fp.sender).resource
@@ -461,6 +534,7 @@ class SI(BaseModule):
             app.storage.archive.insert_object(message_data)
         except Exception as exc:
             self._log.warning("Failed to store SI transfer in archive: %s", exc)
+        return message_data.id
 
     @staticmethod
     def _get_save_path(filename: str, sid: str) -> str:

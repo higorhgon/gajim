@@ -747,6 +747,8 @@ class FileRequestReceivedEvent(ApplicationEvent):
     account: str
     jid: JID
     file_props: FileProp
+    # Archived message that carries the offer
+    message_id: str | None = None
 
 
 @dataclass
