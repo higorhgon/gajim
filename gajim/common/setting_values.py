@@ -425,7 +425,7 @@ ACCOUNT_SETTINGS = {
         "test_ft_proxies_on_startup": False,
         "update_timezone": True,
         "use_custom_host": False,
-        "use_ft_proxies": False,
+        "use_ft_proxies": True,
         "use_plain_connection": False,
         "omemo_blind_trust": True,
         "openpgp_blind_trust": True,

@@ -20,6 +20,8 @@ from typing import Any
 
 import logging
 import socket
+import struct
+import sys
 
 import nbxmpp
 from gi.repository import GLib
@@ -43,6 +45,45 @@ from gajim.common.util.jid import get_jid_from_iq
 from gajim.common.util.jid import parse_jid
 
 log = logging.getLogger("gajim.c.m.bytestream")
+
+# Bridges of containers and virtual machines. Other computers can never reach
+# their addresses, and Pidgin waits 5 seconds on each one before moving on.
+VIRTUAL_INTERFACE_PREFIXES = (
+    "docker",
+    "br-",
+    "veth",
+    "virbr",
+    "vmnet",
+    "vboxnet",
+    "lxcbr",
+    "lxdbr",
+    "podman",
+    "cni",
+)
+
+SIOCGIFADDR = 0x8915
+
+
+def get_virtual_interface_ips() -> set[str]:
+    if sys.platform != "linux":
+        return set()
+
+    import fcntl
+
+    ips: set[str] = set()
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        for _index, name in socket.if_nameindex():
+            if not name.startswith(VIRTUAL_INTERFACE_PREFIXES):
+                continue
+            try:
+                packed = fcntl.ioctl(
+                    sock.fileno(), SIOCGIFADDR, struct.pack("256s", name[:15].encode())
+                )
+            except OSError:
+                # Interface without IPv4 address
+                continue
+            ips.add(socket.inet_ntoa(packed[20:24]))
+    return ips
 
 
 def is_transfer_paused(file_props: FileProp) -> bool:
@@ -109,16 +150,43 @@ class Bytestream(BaseModule):
         self.ok_id = None
         self.fail_id = None
 
+        # Bytestream proxies (XEP-0065) offered by the server, by JID
+        self._proxies: dict[str, dict[str, Any]] = {}
+
     def pass_disco(self, info: DiscoInfo) -> None:
         if Namespace.BYTESTREAM not in info.features:
             return
-        if app.settings.get_account_setting(self._account, "use_ft_proxies"):
-            log.info("Discovered proxy: %s", info.jid)
-            our_fjid = self._con.get_own_jid()
-            testit = app.settings.get_account_setting(
-                self._account, "test_ft_proxies_on_startup"
-            )
-            raise nbxmpp.NodeProcessed
+        if not any(
+            identity.category == "proxy" and identity.type == "bytestreams"
+            for identity in info.identities
+        ):
+            return
+        if not app.settings.get_account_setting(self._account, "use_ft_proxies"):
+            return
+
+        assert info.jid is not None
+        log.info("Discovered proxy: %s", info.jid)
+        iq = nbxmpp.Iq(typ="get", to=str(info.jid), queryNS=Namespace.BYTESTREAM)
+        self._con.connection.send_stanza(iq, callback=self._on_proxy_streamhost)
+
+    def _on_proxy_streamhost(self, _client: types.NBXMPPClient, stanza: Iq) -> None:
+        if not nbxmpp.isResultNode(stanza):
+            log.warning("Proxy %s did not answer: %s", stanza.getFrom(), stanza)
+            return
+
+        query = stanza.getTag("query", namespace=Namespace.BYTESTREAM)
+        streamhost = query.getTag("streamhost") if query is not None else None
+        if streamhost is None:
+            return
+
+        jid = streamhost.getAttr("jid") or str(stanza.getFrom())
+        host = streamhost.getAttr("host")
+        port = streamhost.getAttr("port")
+        if not host or not port:
+            return
+
+        log.info("Proxy %s available at %s:%s", jid, host, port)
+        self._proxies[jid] = {"jid": jid, "host": host, "port": port}
 
     @staticmethod
     def _ft_get_receiver_jid(file_props: FileProp) -> str:
@@ -319,10 +387,12 @@ class Bytestream(BaseModule):
         try:
             # The ip we're connected to server with
             my_ips = [my_ip]
+            virtual_ips = get_virtual_interface_ips()
             # all IPs from local DNS
             for addr in socket.getaddrinfo(socket.gethostname(), None):
                 if (
                     addr[4][0] not in my_ips
+                    and addr[4][0] not in virtual_ips
                     and not addr[4][0].startswith("127")
                     and not addr[4][0] == "::1"
                     # Link-local addresses need a zone index the
@@ -463,7 +533,10 @@ class Bytestream(BaseModule):
     def _get_file_transfer_proxies_from_config(
         self, file_props: FileProp
     ) -> list[dict[str, Any]]:
-        return []
+        return [
+            {**proxy, "initiator": proxy["jid"], "target": file_props.receiver}
+            for proxy in self._proxies.values()
+        ]
 
         # configured_proxies = app.settings.get_account_setting(
         #     self._account, 'file_transfer_proxies')
@@ -711,24 +784,11 @@ class Bytestream(BaseModule):
             self.remove_transfer(file_props)
             raise nbxmpp.NodeProcessed
         if proxy is not None:
+            # The receiver could not reach us directly, e.g. because of a
+            # firewall, and connected to the proxy instead
             file_props.streamhost_used = True
-            file_props.streamhosts.append(proxy)
             file_props.is_a_proxy = True
-            idx = app.socks5queue.idx
-            sender = Socks5SenderClient(
-                app.idlequeue,
-                idx,
-                app.socks5queue,
-                _sock=None,
-                host=str(proxy["host"]),
-                port=int(proxy["port"]),
-                connected=False,
-                file_props=file_props,
-            )
-            sender.streamhost = proxy
-            app.socks5queue.add_sockobj(self._account, sender)
-            proxy["idx"] = sender.queue_idx
-            app.socks5queue.on_success[file_props.sid] = self._proxy_auth_ok
+            self._con.get_module("SI").send_via_proxy(file_props, proxy)
             raise nbxmpp.NodeProcessed
 
         if file_props.stopped:
