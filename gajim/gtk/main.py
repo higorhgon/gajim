@@ -199,12 +199,12 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
 
         # The input method (fcitx5) may reset the modifier state while the
         # keys are still held, e.g. after a text entry lost the focus. Track
-        # Control ourselves to keep Ctrl+R working when pressed repeatedly.
+        # Control ourselves to keep Ctrl+T working when pressed repeatedly.
         self._control_pressed = False
         controller = Gtk.EventControllerKey(
             propagation_phase=Gtk.PropagationPhase.CAPTURE
         )
-        controller.connect("key-pressed", self._on_ctrl_r_fallback_pressed)
+        controller.connect("key-pressed", self._on_ctrl_t_fallback_pressed)
         controller.connect("key-released", self._on_control_released)
         self.add_controller(controller)
 
@@ -610,7 +610,7 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
         # The list may still be hidden, wait until it is mapped
         GLib.idle_add(self._chat_page.focus_chat_search)
 
-    def _on_ctrl_r_fallback_pressed(
+    def _on_ctrl_t_fallback_pressed(
         self,
         _controller: Gtk.EventControllerKey,
         keyval: int,
@@ -621,7 +621,7 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
             self._control_pressed = True
             return False
 
-        if keyval not in (Gdk.KEY_r, Gdk.KEY_R):
+        if keyval not in (Gdk.KEY_t, Gdk.KEY_T):
             return False
 
         # With the modifier state intact the shortcut controller handles it

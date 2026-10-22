@@ -361,7 +361,7 @@ MAIN_WIN_SHORTCUTS = GajimShortcutGroup(
         GajimShortcut(
             label=_("Open Chat List and Search"),
             category="chats",
-            accelerators=["<Primary>R"],
+            accelerators=["<Primary>T"],
             action_name="win.open-chat-list",
         ),
         GajimShortcut(
