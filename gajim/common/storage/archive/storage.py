@@ -75,7 +75,7 @@ from gajim.common.util.datetime import FIRST_UTC_DATETIME
 from gajim.common.util.datetime import utc_now
 from gajim.common.util.text import get_random_string
 
-CURRENT_USER_VERSION = 20
+CURRENT_USER_VERSION = 21
 
 _T = TypeVar("_T")
 
@@ -1502,7 +1502,9 @@ class MessageArchiveStorage(AlchemyStorage):
         self,
         account: str,
         jid: JID,
-        attr: Literal["custom_name", "remote_name", "fallback_name", "avatar_sha"],
+        attr: Literal[
+            "custom_name", "nickname", "remote_name", "fallback_name", "avatar_sha"
+        ],
         value: str | None,
     ) -> None: ...
 
@@ -1511,7 +1513,12 @@ class MessageArchiveStorage(AlchemyStorage):
         account: str,
         jid: JID,
         attr: Literal[
-            "custom_name", "remote_name", "fallback_name", "draft", "avatar_sha"
+            "custom_name",
+            "nickname",
+            "remote_name",
+            "fallback_name",
+            "draft",
+            "avatar_sha",
         ],
         value: str | Draft | None,
     ) -> None:
@@ -1552,7 +1559,9 @@ class MessageArchiveStorage(AlchemyStorage):
         self,
         account: str,
         jid: JID,
-        attr: Literal["custom_name", "remote_name", "fallback_name", "avatar_sha"],
+        attr: Literal[
+            "custom_name", "nickname", "remote_name", "fallback_name", "avatar_sha"
+        ],
     ) -> str | None: ...
 
     @timeit

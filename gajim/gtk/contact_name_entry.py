@@ -108,7 +108,11 @@ class ContactNameEntry(Gtk.Box, SignalManager):
         client = app.get_client(self._contact.account)
 
         if isinstance(self._contact, BareContact):
-            client.get_module("Roster").change_name(self._contact.jid, name)
+            # Local nickname, the name of the roster item stays untouched
+            app.storage.archive.set_contact_value(
+                self._contact.account, self._contact.jid, "nickname", name or None
+            )
+            self._contact.notify("nickname-update")
         else:
             client.get_module("Bookmarks").modify(self._contact.jid, name=name)
 
@@ -145,11 +149,16 @@ class ContactNameEntry(Gtk.Box, SignalManager):
         if self._contact is not None:
             if isinstance(self._contact, BareContact | GroupchatContact):
                 # Name editing is not possible for GroupchatParticipant
+                base_name = (
+                    self._contact.roster_name
+                    if isinstance(self._contact, BareContact)
+                    else self._contact.original_name
+                )
                 if name == "":
-                    name = self._contact.original_name
+                    name = base_name
 
-                if name != self._contact.original_name:
-                    name = f"{name} ({self._contact.original_name})"
+                if name != base_name:
+                    name = f"{name} ({base_name})"
             else:
                 name = self._contact.name
 

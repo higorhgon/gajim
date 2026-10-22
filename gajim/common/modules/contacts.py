@@ -497,6 +497,16 @@ class BareContact(CommonContact):
 
     @property
     def name(self) -> str:
+        if nickname := app.storage.archive.get_contact_value(
+            self._account, self._jid, "nickname"
+        ):
+            return nickname
+
+        return self.roster_name
+
+    @property
+    def roster_name(self) -> str:
+        """Name without the local nickname"""
         if custom_name := app.storage.archive.get_contact_value(
             self._account, self._jid, "custom_name"
         ):
