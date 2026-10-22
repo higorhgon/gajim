@@ -359,10 +359,10 @@ MAIN_WIN_SHORTCUTS = GajimShortcutGroup(
             action_name="win.restore-chat",
         ),
         GajimShortcut(
-            label=_("Toggle Chat List"),
+            label=_("Open Chat List and Search"),
             category="chats",
             accelerators=["<Primary>R"],
-            action_name="win.chat-list-visible",
+            action_name="win.open-chat-list",
         ),
         GajimShortcut(
             label=_("Switch to Next Chat"),
