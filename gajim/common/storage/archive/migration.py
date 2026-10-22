@@ -137,6 +137,8 @@ class Migration:
             self._v19()
         if user_version < 20:
             self._v20()
+        if user_version < 21:
+            self._v21()
 
         app.ged.raise_event(DBMigrationFinished())
 
@@ -415,6 +417,14 @@ class Migration:
         app.ged.raise_event(DBMigrationStart(version=20))
         self._archive.run_analyze()
         self._archive.set_user_version(20)
+
+    def _v21(self) -> None:
+        app.ged.raise_event(DBMigrationStart(version=21))
+        with self._engine.begin() as conn:
+            columns = conn.execute(sa.text("PRAGMA table_info(contact)")).fetchall()
+            if "nickname" not in [column[1] for column in columns]:
+                conn.execute(sa.text("ALTER TABLE contact ADD COLUMN nickname TEXT"))
+        self._archive.set_user_version(21)
 
     def _get_account_pks(self, conn: sa.Connection) -> list[int]:
         account_pks: list[int] = []

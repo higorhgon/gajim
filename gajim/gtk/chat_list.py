@@ -41,6 +41,7 @@ from gajim.gtk.start_chat import ChatTypeFilter
 from gajim.gtk.util.classes import SignalManager
 from gajim.gtk.util.misc import get_listbox_row_count
 from gajim.gtk.util.misc import iterate_listbox_children
+from gajim.gtk.util.misc import scroll_to_listbox_row
 
 log = logging.getLogger("gajim.gtk.chatlist")
 
@@ -60,6 +61,7 @@ class ChatList(Gtk.ListBox, EventHelper, SignalManager):
         self._chats: dict[tuple[str, JID], ChatListRow] = {}
         self._current_filter: ChatFilters = ChatFilters()
         self._current_filter_text: str = ""
+        self._highlighted_row: ChatListRow | None = None
 
         self.add_css_class("chatlist")
         self.set_filter_func(self._filter_func)
@@ -151,6 +153,37 @@ class ChatList(Gtk.ListBox, EventHelper, SignalManager):
     def set_filter_text(self, text: str) -> None:
         self._current_filter_text = text
         self.invalidate_filter()
+
+    def move_highlight(self, step: int) -> None:
+        """Highlights the next visible row, without selecting (opening) it"""
+        rows = [row for row in self._iterate_rows() if row.get_child_visible()]
+        if not rows:
+            return
+
+        current = self._highlighted_row or self.get_selected_chat()
+        if current in rows:
+            index = rows.index(current) + step
+        else:
+            index = 0 if step > 0 else len(rows) - 1
+        index = max(0, min(index, len(rows) - 1))
+
+        self.clear_highlight()
+        self._highlighted_row = rows[index]
+        self._highlighted_row.add_css_class("keyboard-highlight")
+        scroll_to_listbox_row(self, self._highlighted_row)
+
+    def clear_highlight(self) -> None:
+        if self._highlighted_row is not None:
+            self._highlighted_row.remove_css_class("keyboard-highlight")
+        self._highlighted_row = None
+
+    def activate_highlighted(self) -> bool:
+        row = self._highlighted_row
+        self.clear_highlight()
+        if row is None:
+            return False
+        self.select_chat(row.account, row.jid)
+        return True
 
     def get_chat_type(
         self, account: str, jid: JID

@@ -197,6 +197,17 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
         manager = app.app.get_shortcut_manager()
         manager.install_shortcuts(self, "main-win")
 
+        # The input method (fcitx5) may reset the modifier state while the
+        # keys are still held, e.g. after a text entry lost the focus. Track
+        # Control ourselves to keep Ctrl+T working when pressed repeatedly.
+        self._control_pressed = False
+        controller = Gtk.EventControllerKey(
+            propagation_phase=Gtk.PropagationPhase.CAPTURE
+        )
+        controller.connect("key-pressed", self._on_ctrl_t_fallback_pressed)
+        controller.connect("key-released", self._on_control_released)
+        self.add_controller(controller)
+
     @property
     def about_dialog(self) -> AboutDialog:
         assert self._about_dialog is not None
@@ -576,6 +587,65 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
 
         self._update_navigation()
 
+    def _on_open_chat_list(
+        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
+    ) -> None:
+        # Hidden: show it and focus the search. Visible: focus the search, or
+        # hide the list if the search already has the focus.
+        if (
+            not self._get_focus_mode()
+            and self._get_chat_list_visible()
+            and self._chat_page.is_chat_search_focused()
+        ):
+            # Move the focus out of the search before hiding it. Hiding the
+            # focused widget while the key press is still being handled leaves
+            # the window without a focus widget.
+            self.activate_action("win.input-focus")
+            GLib.idle_add(self._hide_chat_list)
+            return
+
+        if self._get_focus_mode():
+            self.set_action_state("focus-mode", False)
+        self._set_chat_list_visible(True)
+        # The list may still be hidden, wait until it is mapped
+        GLib.idle_add(self._chat_page.focus_chat_search)
+
+    def _on_ctrl_t_fallback_pressed(
+        self,
+        _controller: Gtk.EventControllerKey,
+        keyval: int,
+        _keycode: int,
+        state: Gdk.ModifierType,
+    ) -> bool:
+        if keyval in (Gdk.KEY_Control_L, Gdk.KEY_Control_R):
+            self._control_pressed = True
+            return False
+
+        if keyval not in (Gdk.KEY_t, Gdk.KEY_T):
+            return False
+
+        # With the modifier state intact the shortcut controller handles it
+        modifiers = state & Gtk.accelerator_get_default_mod_mask()
+        if modifiers or not self._control_pressed:
+            return False
+
+        self.activate_action("win.open-chat-list")
+        return True
+
+    def _on_control_released(
+        self,
+        _controller: Gtk.EventControllerKey,
+        keyval: int,
+        _keycode: int,
+        _state: Gdk.ModifierType,
+    ) -> None:
+        if keyval in (Gdk.KEY_Control_L, Gdk.KEY_Control_R):
+            self._control_pressed = False
+
+    def _hide_chat_list(self) -> bool:
+        self._set_chat_list_visible(False)
+        return GLib.SOURCE_REMOVE
+
     def _connect_actions(self) -> None:
         actions = [
             ("change-nickname", self._on_action),
@@ -583,6 +653,7 @@ class MainWindow(Adw.ApplicationWindow, EventHelper):
             ("escape", self._on_action),
             ("close-chat", self._on_action),
             ("restore-chat", self._on_action),
+            ("open-chat-list", self._on_open_chat_list),
             ("switch-next-chat", self._on_action),
             ("switch-prev-chat", self._on_action),
             ("switch-next-unread-chat", self._on_action),

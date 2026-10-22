@@ -1025,6 +1025,7 @@ class Contact(MappedAsDataclass, Base, UtilMixin, kw_only=True):
     __upsert_cols__ = [
         "timestamp",
         "custom_name",
+        "nickname",
         "remote_name",
         "fallback_name",
         "draft",
@@ -1046,6 +1047,11 @@ class Contact(MappedAsDataclass, Base, UtilMixin, kw_only=True):
         EpochTimestampType, default_factory=utc_now
     )
     custom_name: Mapped[str | None] = mapped_column(
+        StrValueMissingType, default=VALUE_MISSING
+    )
+    # Local alias, never sent to the server. `custom_name` keeps the name
+    # of the roster item
+    nickname: Mapped[str | None] = mapped_column(
         StrValueMissingType, default=VALUE_MISSING
     )
     remote_name: Mapped[str | None] = mapped_column(

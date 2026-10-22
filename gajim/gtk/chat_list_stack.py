@@ -71,9 +71,6 @@ class ChatListStack(Gtk.Stack, EventHelper):
             ]
         )
 
-    def set_search_entry(self, search_entry: Gtk.SearchEntry) -> None:
-        search_entry.connect("search-changed", self._on_search_changed)
-
     def set_chat_filter(self, chat_filter: ChatFilter) -> None:
         chat_filter.connect("filter-changed", self._on_filter_changed)
 
@@ -133,9 +130,11 @@ class ChatListStack(Gtk.Stack, EventHelper):
         chat_list = cast(ChatList, self.get_visible_child())
         chat_list.set_filter(filters)
 
-    def _on_search_changed(self, search_entry: Gtk.SearchEntry) -> None:
-        chat_list = cast(ChatList, self.get_visible_child())
-        chat_list.set_filter_text(search_entry.get_text())
+    def get_all_chat_rows(self) -> list[ChatListRow]:
+        rows: list[ChatListRow] = []
+        for chat_list in self._chat_lists.values():
+            rows.extend(chat_list.get_chat_list_rows())
+        return rows
 
     def add_chat_list(self, workspace_id: str) -> ChatList:
         chat_list = ChatList(workspace_id)

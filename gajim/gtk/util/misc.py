@@ -310,6 +310,30 @@ def iterate_listbox_children(listbox: Gtk.ListBox) -> Iterator[Gtk.Widget]:
         index += 1
 
 
+def scroll_to_listbox_row(listbox: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+    """Scrolls the surrounding ScrolledWindow so that row is visible"""
+    scrolled = listbox.get_ancestor(Gtk.ScrolledWindow)
+    if not isinstance(scrolled, Gtk.ScrolledWindow):
+        return
+
+    # Bounds relative to the scrolled content, the coordinates the adjustment
+    # works with (a Viewport only moves its child)
+    content = scrolled.get_child()
+    if isinstance(content, Gtk.Viewport):
+        content = content.get_child()
+    success, bounds = row.compute_bounds(content or listbox)
+    if not success:
+        return
+
+    adjustment = scrolled.get_vadjustment()
+    top = bounds.get_y()
+    bottom = top + bounds.get_height()
+    if top < adjustment.get_value():
+        adjustment.set_value(top)
+    elif bottom > adjustment.get_value() + adjustment.get_page_size():
+        adjustment.set_value(bottom - adjustment.get_page_size())
+
+
 def container_remove_all(container: Any) -> None:
     while child := container.get_first_child():
         container.remove(child)

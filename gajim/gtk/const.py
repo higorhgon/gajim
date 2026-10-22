@@ -247,6 +247,7 @@ MAIN_WIN_ACTIONS = [
     ("escape", None, True),
     ("close-chat", None, True),
     ("restore-chat", None, True),
+    ("open-chat-list", None, True),
     ("switch-next-chat", None, True),
     ("switch-prev-chat", None, True),
     ("switch-next-unread-chat", None, True),
