@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import logging
 
+from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository import GLib
 from gi.repository import GObject
@@ -29,6 +30,7 @@ from gajim.gtk.activity_page import ActivityPage
 from gajim.gtk.chat_list import ChatList
 from gajim.gtk.chat_list_header import ChatListHeader
 from gajim.gtk.chat_list_stack import ChatListStack
+from gajim.gtk.chat_search_results import ChatSearchResults
 from gajim.gtk.chat_stack import ChatStack
 from gajim.gtk.search_view import SearchView
 from gajim.gtk.util.misc import get_ui_string
@@ -50,6 +52,7 @@ class ChatPage(Gtk.Paned):
     _search_revealer: Gtk.Revealer = Gtk.Template.Child()
     _search_view: SearchView = Gtk.Template.Child()
     _chat_list_stack: ChatListStack = Gtk.Template.Child()
+    _search_results: ChatSearchResults = Gtk.Template.Child()
     _activity_list: ActivityListView = Gtk.Template.Child()
 
     __gsignals__ = {
@@ -71,7 +74,19 @@ class ChatPage(Gtk.Paned):
         search_entry = self._chat_list_header.get_search_entry()
         chat_filter = self._chat_list_header.get_chat_filter()
 
-        self._chat_list_stack.set_search_entry(search_entry)
+        search_entry.connect("search-changed", self._on_chat_search_changed)
+        search_entry.connect("activate", self._on_chat_search_activate)
+        search_entry.connect("stop-search", self._on_chat_search_stop)
+
+        key_controller = Gtk.EventControllerKey()
+        key_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        key_controller.connect("key-pressed", self._on_chat_search_key_pressed)
+        search_entry.add_controller(key_controller)
+
+        # The keyboard highlight only lives while the search has the focus
+        focus_controller = Gtk.EventControllerFocus()
+        focus_controller.connect("leave", self._clear_chat_list_highlight)
+        search_entry.add_controller(focus_controller)
         self._chat_list_stack.set_chat_filter(chat_filter)
 
         activity_page = self._chat_stack.get_child_by_name("activity")
@@ -84,6 +99,119 @@ class ChatPage(Gtk.Paned):
         app.ged.register_event_handler(
             "register-actions", ged.GUI1, self._on_register_actions
         )
+
+    def _on_chat_search_changed(self, search_entry: Gtk.SearchEntry) -> None:
+        # Search spans the chats of all workspaces and the contacts without
+        # a chat, the activity feed does its own filtering.
+        if self._list_stack.get_visible_child_name() == "activity-list":
+            return
+
+        self._clear_chat_list_highlight()
+        query = search_entry.get_text().strip()
+        if not query:
+            self._list_stack.set_visible_child_name("chat-list-stack")
+            return
+
+        self._search_results.set_query(
+            query, self._chat_list_stack.get_all_chat_rows()
+        )
+        self._list_stack.set_visible_child_name("search-results")
+
+    def _on_chat_search_activate(self, _search_entry: Gtk.SearchEntry) -> None:
+        page_name = self._list_stack.get_visible_child_name()
+        if page_name == "search-results":
+            activated = self._search_results.activate_selected()
+        elif page_name == "chat-list-stack":
+            chat_list = self._chat_list_stack.get_current_chat_list()
+            activated = chat_list is not None and chat_list.activate_highlighted()
+        else:
+            activated = False
+
+        if activated:
+            # Enter confirms the chat, so the message input gets the focus.
+            # Low priority: run after the chat stack grabbed the focus itself.
+            GLib.idle_add(self._focus_message_input, priority=GLib.PRIORITY_LOW)
+
+    def _focus_message_input(self) -> bool:
+        app.window.activate_action("win.input-focus", None)
+        # activate_action() returns True, which would repeat this callback
+        return GLib.SOURCE_REMOVE
+
+    def _clear_chat_list_highlight(self, *_args: Any) -> None:
+        chat_list = self._chat_list_stack.get_current_chat_list()
+        if chat_list is not None:
+            chat_list.clear_highlight()
+
+    def _on_chat_search_stop(self, _search_entry: Gtk.SearchEntry) -> None:
+        # Escape with an empty query does not emit search-changed
+        self._clear_chat_list_highlight()
+        self._list_stack.set_visible_child_name("chat-list-stack")
+
+    def is_chat_search_focused(self) -> bool:
+        search_entry = self._chat_list_header.get_search_entry()
+        root = search_entry.get_root()
+        focus = root.get_focus() if root is not None else None
+        return focus is not None and (
+            focus is search_entry or focus.is_ancestor(search_entry)
+        )
+
+    def focus_chat_search(self) -> None:
+        if self._list_stack.get_visible_child_name() == "activity-list":
+            return
+        search_entry = self._chat_list_header.get_search_entry()
+        search_entry.grab_focus()
+
+    def _on_chat_search_key_pressed(
+        self,
+        _controller: Gtk.EventControllerKey,
+        keyval: int,
+        _keycode: int,
+        _state: Gdk.ModifierType,
+    ) -> bool:
+        if keyval not in (Gdk.KEY_Up, Gdk.KEY_Down):
+            return False
+
+        step = 1 if keyval == Gdk.KEY_Down else -1
+        page_name = self._list_stack.get_visible_child_name()
+        if page_name == "chat-list-stack":
+            # Without a query navigate the visible chat list itself
+            chat_list = self._chat_list_stack.get_current_chat_list()
+            if chat_list is None:
+                return False
+            chat_list.move_highlight(step)
+            return True
+
+        if page_name != "search-results":
+            return False
+
+        # Only the highlighted result changes, the chat is opened with Enter
+        self._search_results.move_selection(step)
+        return True
+
+    def _end_chat_search(self) -> None:
+        self._chat_list_header.get_search_entry().set_text("")
+        self._list_stack.set_visible_child_name("chat-list-stack")
+
+    @Gtk.Template.Callback()
+    def _on_search_chat_activated(
+        self, _results: ChatSearchResults, account: str, jid: JID
+    ) -> None:
+        self._end_chat_search()
+        chat_list = self._chat_list_stack.find_chat(account, jid)
+        if (
+            chat_list is not None
+            and self._chat_list_stack.get_visible_child_name()
+            != chat_list.workspace_id
+        ):
+            app.window.activate_workspace(chat_list.workspace_id)
+        self.select_chat(account, jid)
+
+    @Gtk.Template.Callback()
+    def _on_search_new_chat_activated(
+        self, _results: ChatSearchResults, account: str, jid: JID
+    ) -> None:
+        self._end_chat_search()
+        app.window.add_chat(account, jid, "chat", select=True)
 
     def _on_register_actions(self, _event: RegisterActions) -> None:
         def _transform_to_bool(binding: GObject.Binding, value: GLib.Variant) -> bool:

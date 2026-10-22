@@ -425,6 +425,10 @@ button.flat.link { padding: 0; border: 0; }
     background-color: mix(var(--view-bg-color), var(--window-fg-color), 0.1);
     outline: none;
 }
+.chatlist-row.keyboard-highlight,
+.chat-search-results > .chatlist-row:selected {
+    border-color: var(--accent-bg-color);
+}
 .chatlist-row:selected label:not(.unread-counter){
     color: var(--view-fg-color);
 }
