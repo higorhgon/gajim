@@ -130,6 +130,9 @@ class FileTransferJingleRow(BaseRow, EventHelper):
                 contact = self._contact
                 is_self = True
 
+        # is_self marks the contact, not our own account
+        self._outgoing = not is_self
+
         scale = self.get_scale_factor()
         avatar = contact.get_avatar(AvatarSize.ROSTER, scale, add_show=False)
         assert not isinstance(avatar, GdkPixbuf.Pixbuf)
@@ -442,10 +445,16 @@ class FileTransferJingleRow(BaseRow, EventHelper):
             eta = format_eta(round((full_size - transferred_size) / bytes_sec))
 
         progress = float(transferred_size) / full_size
-        self._ui.progress_label.set_text(
-            _("%(progress)s %% (%(time)s remaining)")
-            % {"progress": round(progress * 100), "time": eta}
-        )
+        if file_props.type_ == "s" and transferred_size >= full_size:
+            # Sent, waiting for the receiver to close the connection
+            self._ui.progress_label.set_text(
+                _("Waiting for %s…") % self._contact.name
+            )
+        else:
+            self._ui.progress_label.set_text(
+                _("%(progress)s %% (%(time)s remaining)")
+                % {"progress": round(progress * 100), "time": eta}
+            )
 
         self._ui.progress_bar.set_fraction(progress)
 
@@ -465,7 +474,11 @@ class FileTransferJingleRow(BaseRow, EventHelper):
 
     def _show_completed(self) -> None:
         self._ui.action_stack.set_visible_child_name("complete")
-        self._ui.transfer_action.set_text(_("File Transfer Completed"))
+        if self._outgoing:
+            # The bytes left, SI cannot confirm the file arrived
+            self._ui.transfer_action.set_text(_("File Sent"))
+        else:
+            self._ui.transfer_action.set_text(_("File Transfer Completed"))
 
     def _on_accept_file_request(self, _widget: Gtk.Widget) -> None:
         assert self._file_props is not None

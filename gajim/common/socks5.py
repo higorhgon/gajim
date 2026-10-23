@@ -42,6 +42,13 @@ READ_TIMEOUT = 180
 # if it is 0, then transfer will wait forever
 SEND_TIMEOUT = 180
 
+# After the last byte, how long to wait for the receiver to close the
+# connection. SI has no receipt, the close is the only sign the file arrived.
+PEER_CLOSE_TIMEOUT = 60
+
+# State of a sender which sent everything and waits for the receiver to close
+STATE_AWAITING_CLOSE = 9
+
 
 class SocksQueue:
     """
@@ -587,6 +594,9 @@ class Socks5:
 
     def read_timeout(self):
         self.idlequeue.remove_timeout(self.fd)
+        if self.state == STATE_AWAITING_CLOSE:
+            self._on_peer_close_timeout()
+            return
         if self.state > 5:
             # no activity for foo seconds
             if self.file_props.stalled is False:
@@ -713,6 +723,8 @@ class Socks5:
             self.file_props.last_time = current_time
             self.file_props.received_len = self.size
             if self.size >= self.file_props.size:
+                if self.file_props.session_type == "si":
+                    return self._await_peer_close()
                 self.state = 8  # end connection
                 self.file_props.error = 0
                 self.disconnect()
@@ -730,6 +742,57 @@ class Socks5:
         self.state = 8  # end connection
         self.disconnect()
         return -1
+
+    def _await_peer_close(self):
+        """
+        Everything is in the send buffer, but not necessarily at the receiver.
+        Stop writing and wait: a receiver that read the whole file closes the
+        connection, one that gave up resets it.
+        """
+        self.state = STATE_AWAITING_CLOSE
+        self.close_file()
+        try:
+            self._sock.shutdown(socket.SHUT_WR)
+        except OSError as error:
+            # Fails only once the connection was reset, a clean close of the
+            # receiver still allows it
+            log.warning("Receiver aborted the transfer: %s", error)
+            self.file_props.error = -1
+            self.state = 8  # end connection
+            self.disconnect()
+            return -1
+        self.idlequeue.remove_timeout(self.fd)
+        self.idlequeue.plug_idle(self, False, True)
+        self.idlequeue.set_read_timeout(self.fd, PEER_CLOSE_TIMEOUT)
+        return None
+
+    def _on_peer_closed(self):
+        """The receiver closed the connection, find out how"""
+        try:
+            data = self._sock.recv(1)
+        except BlockingIOError:
+            # Nothing happened yet
+            return
+        except OSError as error:
+            log.warning("Receiver aborted the transfer: %s", error)
+            self.file_props.error = -1
+        else:
+            if data:
+                # The receiver should not send anything, keep waiting
+                return
+            log.info("Receiver closed the connection, file transferred")
+            self.file_props.error = 0
+        self.state = 8  # end connection
+        self.disconnect()
+        self.queue.process_result(-1, self)
+
+    def _on_peer_close_timeout(self):
+        # The receiver keeps the connection open, it got the bytes at least
+        log.info("Receiver did not close the connection, assuming success")
+        self.file_props.error = 0
+        self.state = 8  # end connection
+        self.disconnect()
+        self.queue.process_result(-1, self)
 
     def _on_send_exception(self):
         # peer stopped reading
@@ -1136,6 +1199,9 @@ class Socks5Server(Socks5):
         return None
 
     def pollin(self):
+        if self.state == STATE_AWAITING_CLOSE:
+            self._on_peer_closed()
+            return
         self.idlequeue.remove_timeout(self.fd)
         if self.connected:
             if self.state < 5:
@@ -1166,6 +1232,10 @@ class Socks5Server(Socks5):
             self.disconnect()
 
     def pollend(self):
+        if self.state == STATE_AWAITING_CLOSE:
+            # A clean close shows up as HUP as well, after our shutdown
+            self._on_peer_closed()
+            return
         self.state = 8  # end connection
         self.disconnect()
         self.file_props.error = -1
@@ -1187,6 +1257,8 @@ class Socks5Server(Socks5):
                 return
             result = self.start_transfer()  # send
             self.queue.process_result(result, self)
+            if self.state == STATE_AWAITING_CLOSE:
+                return
             if result is None or result <= 0:
                 self.disconnect()
                 return
@@ -1282,6 +1354,9 @@ class Socks5Client(Socks5):
             return None
 
     def pollin(self):
+        if self.state == STATE_AWAITING_CLOSE:
+            self._on_peer_closed()
+            return
         self.idlequeue.remove_timeout(self.fd)
         if self.connected:
             if self.file_props.paused:
@@ -1322,6 +1397,9 @@ class Socks5Client(Socks5):
         self.idlequeue.set_read_timeout(self.fd, CONNECT_TIMEOUT)
 
     def pollend(self):
+        if self.state == STATE_AWAITING_CLOSE:
+            self._on_peer_closed()
+            return
         if self.state >= 5:
             # error during transfer
             self.disconnect()

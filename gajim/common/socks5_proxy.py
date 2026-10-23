@@ -20,6 +20,9 @@ log = logging.getLogger("gajim.c.socks5_proxy")
 
 CONNECT_TIMEOUT = 30
 CHUNK_SIZE = 64 * 1024
+# After the last byte, how long to wait for the receiver to close the
+# connection. SI has no receipt, the close is the only sign the file arrived.
+PEER_CLOSE_TIMEOUT = 60
 
 
 class Socks5ProxySender:
@@ -49,6 +52,7 @@ class Socks5ProxySender:
         self._file = None
         self._sent = 0
         self._done = False
+        self._close_timeout_id: int | None = None
 
     def start(self) -> None:
         log.info("Connecting to proxy %s:%s", self._host, self._port)
@@ -129,9 +133,7 @@ class Socks5ProxySender:
             return
 
         if not chunk:
-            self._done = True
-            self._close()
-            self._on_finished()
+            self._await_peer_close()
             return
 
         def _on_chunk_sent() -> None:
@@ -140,6 +142,70 @@ class Socks5ProxySender:
             self._send_next_chunk()
 
         self._write(chunk, _on_chunk_sent)
+
+    def _await_peer_close(self) -> None:
+        """
+        Everything is in the send buffer, but not necessarily at the receiver.
+        Stop writing and wait for the connection to be closed: cleanly by a
+        receiver that read the whole file, with a reset by one that gave up.
+        The proxy sits in between, so a failure may still look like a clean
+        close.
+        """
+        assert self._conn is not None
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+        try:
+            self._conn.get_socket().shutdown(False, True)
+        except GLib.Error as error:
+            # Fails only once the connection was reset, a clean close of the
+            # receiver still allows it
+            self._fail(f"Receiver aborted the transfer: {error.message}")
+            return
+
+        self._close_timeout_id = GLib.timeout_add_seconds(
+            PEER_CLOSE_TIMEOUT, self._on_peer_close_timeout
+        )
+        self._wait_for_close()
+
+    def _wait_for_close(self) -> None:
+        assert self._conn is not None
+        stream = self._conn.get_input_stream()
+
+        def _on_read(stream: Gio.InputStream, result: Gio.AsyncResult) -> None:
+            try:
+                data = stream.read_bytes_finish(result).get_data() or b""
+            except GLib.Error as error:
+                if self._done:
+                    return
+                self._fail(f"Receiver aborted the transfer: {error.message}")
+                return
+
+            if data:
+                # The receiver should not send anything, keep waiting
+                self._wait_for_close()
+                return
+            log.info("Receiver closed the connection, file transferred")
+            self._finish()
+
+        stream.read_bytes_async(1, GLib.PRIORITY_DEFAULT, self._cancellable, _on_read)
+
+    def _on_peer_close_timeout(self) -> bool:
+        self._close_timeout_id = None
+        # The receiver keeps the connection open, it got the bytes at least
+        log.info("Receiver did not close the connection, assuming success")
+        self._finish()
+        return GLib.SOURCE_REMOVE
+
+    def _finish(self) -> None:
+        if self._done:
+            return
+        self._done = True
+        # Ends the read still waiting for the close, after a timeout
+        self._cancellable.cancel()
+        self._close()
+        self._on_finished()
 
     def _write(self, data: bytes, callback: Callable[[], None]) -> None:
         assert self._conn is not None
@@ -197,6 +263,9 @@ class Socks5ProxySender:
         self._on_error(message)
 
     def _close(self) -> None:
+        if self._close_timeout_id is not None:
+            GLib.source_remove(self._close_timeout_id)
+            self._close_timeout_id = None
         if self._file is not None:
             self._file.close()
             self._file = None
