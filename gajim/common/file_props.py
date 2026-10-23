@@ -152,6 +152,11 @@ class FileProp:
         self.request_id: str | None = None
         self.proxyhosts = None
         self.dstaddr = None
+        # How the transfer connects: "direct", "proxy", "direct+proxy" (both
+        # tried) or "ibb", None until the stream method is known
+        self.connection_method: str | None = None
+        # The own addresses were not offered, the firewall blocks the port
+        self.direct_blocked: bool = False
 
     def getsid(self) -> str:
         # Getter of the property sid

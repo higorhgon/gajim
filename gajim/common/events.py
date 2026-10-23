@@ -229,6 +229,12 @@ class FileProgress(ApplicationEvent):
 
 
 @dataclass
+class FileConnectionStage(ApplicationEvent):
+    name: str = field(init=False, default="file-connection-stage")
+    file_props: FileProp
+
+
+@dataclass
 class FileCompleted(ApplicationEvent):
     name: str = field(init=False, default="file-completed")
     account: str

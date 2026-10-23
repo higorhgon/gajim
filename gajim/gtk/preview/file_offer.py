@@ -120,10 +120,10 @@ class FileOfferWidget(Gtk.Box, SignalManager):
         if self._pulse_id is None:
             self._pulse_id = GLib.timeout_add(100, self._pulse)
 
-    def update_progress(self, fraction: float) -> None:
+    def update_progress(self, fraction: float, message: str | None = None) -> None:
         self._stop_pulse()
         self._set_buttons(cancel=True)
-        self._set_info_message(None)
+        self._set_info_message(message)
         self._progress_box.set_visible(True)
         self._progress_text.set_label(f"{int(fraction * 100)} %")
         self._progressbar.set_fraction(fraction)

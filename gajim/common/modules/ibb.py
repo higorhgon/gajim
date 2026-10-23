@@ -23,6 +23,7 @@ from gajim.common.file_props import FileProp
 from gajim.common.file_props import FilesProp
 from gajim.common.helpers import to_user_string
 from gajim.common.modules.base import BaseModule
+from gajim.common.modules.bytestream import set_connection_method
 
 
 class IBB(BaseModule):
@@ -91,6 +92,7 @@ class IBB(BaseModule):
             file_props.continue_cb = None
             file_props.syn_id = stanza.getID()
             file_props.fp = open(file_props.file_name, "wb")  # pylint: disable=consider-using-with  # noqa: E501
+            set_connection_method(file_props, "ibb")
             self.send_reply(stanza)
 
         elif properties.ibb.type == "close":

@@ -16,6 +16,7 @@ from gajim.common import app
 from gajim.common import ged
 from gajim.common.const import AvatarSize
 from gajim.common.events import FileCompleted
+from gajim.common.events import FileConnectionStage
 from gajim.common.events import FileError
 from gajim.common.events import FileHashError
 from gajim.common.events import FileProgress
@@ -202,6 +203,7 @@ class FileTransferJingleRow(BaseRow, EventHelper):
                 ("file-send-error", ged.GUI1, self.process_event),
                 ("file-request-error", ged.GUI1, self.process_event),
                 ("file-progress", ged.GUI1, self.process_event),
+                ("file-connection-stage", ged.GUI1, self.process_event),
                 ("file-error", ged.GUI1, self.process_event),
                 ("jingle-error-received", ged.GUI1, self.process_event),
                 ("jingle-ft-cancelled-received", ged.GUI1, self.process_event),
@@ -274,11 +276,16 @@ class FileTransferJingleRow(BaseRow, EventHelper):
 
         if isinstance(event, FileCompleted):
             self._offer.show_completed()
+        elif isinstance(event, FileConnectionStage):
+            if not event.file_props.received_len:
+                self._offer.show_waiting(_get_stage_text(event.file_props))
         elif isinstance(event, FileProgress):
             size = event.file_props.size
             received = event.file_props.received_len
             if size and received is not None:
-                self._offer.update_progress(received / size)
+                self._offer.update_progress(
+                    received / size, _get_method_label(event.file_props)
+                )
         elif isinstance(event, FileHashError):
             self._offer.show_error(_("File corrupted during transfer"))
         elif isinstance(event, FileError):
@@ -385,12 +392,21 @@ class FileTransferJingleRow(BaseRow, EventHelper):
                 error_text = f"{error_text} ({event.error_msg})"
             self._ui.error_label.set_text(error_text)
 
+        elif isinstance(event, FileConnectionStage):
+            if not event.file_props.started:
+                self._ui.action_stack.set_visible_child_name("progress")
+                self._ui.progress_label.set_text(_get_stage_text(event.file_props))
+
         elif isinstance(event, FileProgress):
             self._update_progress(event.file_props)
 
     def _update_progress(self, file_props: FileProp) -> None:
         self._ui.action_stack.set_visible_child_name("progress")
-        self._ui.transfer_action.set_text(_("Transferring File…"))
+        method = _get_method_label(file_props)
+        if method is None:
+            self._ui.transfer_action.set_text(_("Transferring File…"))
+        else:
+            self._ui.transfer_action.set_text(_("Transferring File (%s)…") % method)
 
         time_now = time.time()
         full_size = file_props.size
@@ -514,6 +530,28 @@ class FileTransferJingleRow(BaseRow, EventHelper):
         #     file_transfers.window.present()
         # else:
         #     file_transfers.window.show_all()
+
+
+def _get_method_label(file_props: FileProp) -> str | None:
+    labels = {
+        "direct": _("Direct"),
+        "proxy": _("Proxy"),
+        "direct+proxy": _("Direct or Proxy"),
+        "ibb": "IBB",
+    }
+    method = file_props.connection_method
+    if method is None:
+        return None
+    if method == "proxy" and file_props.direct_blocked:
+        return _("Proxy, port blocked by ufw")
+    return labels.get(method, method)
+
+
+def _get_stage_text(file_props: FileProp) -> str:
+    method = _get_method_label(file_props)
+    if method is None:
+        return _("Waiting…")
+    return _("Establishing Connection (%s)…") % method
 
 
 def _is_received(path: str | None, size: int | None) -> bool:
