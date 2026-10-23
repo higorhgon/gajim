@@ -372,6 +372,16 @@ class SI(BaseModule):
             if fp.stopped:
                 return
             fp.connected = False
+            if fp.started:
+                # The transfer was running, the receiver gave up
+                self._log.warning("Proxy transfer of %s failed: %s", fp.name, message)
+                fp.error = -1
+                app.ged.raise_event(
+                    ged_events.FileError(
+                        account=self._account, file_props=fp, jid=fp.receiver
+                    )
+                )
+                return
             app.ged.raise_event(
                 ged_events.FileSendError(
                     account=self._account,

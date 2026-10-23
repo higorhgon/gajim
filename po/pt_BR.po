@@ -7619,6 +7619,13 @@ msgstr "Estabelecendo Conexão (%s)…"
 msgid "Transferring File (%s)…"
 msgstr "Transferindo Arquivo (%s)…"
 
+msgid "File Sent"
+msgstr "Arquivo Enviado"
+
+#, python-format
+msgid "Waiting for %s…"
+msgstr "Aguardando %s…"
+
 #, python-format
 msgid "%s wants to send you a file"
 msgstr "%s quer enviar um arquivo para você"
