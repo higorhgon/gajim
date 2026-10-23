@@ -7602,6 +7602,23 @@ msgstr "Este arquivo não está mais disponível"
 msgid "File not found"
 msgstr "Arquivo não encontrado"
 
+msgid "Direct"
+msgstr "Direta"
+
+msgid "Direct or Proxy"
+msgstr "Direta ou Proxy"
+
+msgid "Proxy, port blocked by ufw"
+msgstr "Proxy, porta bloqueada pelo ufw"
+
+#, python-format
+msgid "Establishing Connection (%s)…"
+msgstr "Estabelecendo Conexão (%s)…"
+
+#, python-format
+msgid "Transferring File (%s)…"
+msgstr "Transferindo Arquivo (%s)…"
+
 #, python-format
 msgid "%s wants to send you a file"
 msgstr "%s quer enviar um arquivo para você"

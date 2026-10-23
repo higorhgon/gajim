@@ -34,12 +34,14 @@ from nbxmpp.structs import StanzaHandler
 from gajim.common import app
 from gajim.common import helpers
 from gajim.common import types
+from gajim.common.events import FileConnectionStage
 from gajim.common.events import FileRequestError
 from gajim.common.file_props import FileProp
 from gajim.common.file_props import FilesProp
 from gajim.common.modules.base import BaseModule
 
 # from gajim.common.socks5 import Socks5SenderClient
+from gajim.common.util.firewall import is_incoming_port_blocked
 from gajim.common.util.jid import get_full_jid_from_iq
 from gajim.common.util.jid import get_jid_from_iq
 from gajim.common.util.jid import parse_jid
@@ -84,6 +86,15 @@ def get_virtual_interface_ips() -> set[str]:
                 continue
             ips.add(socket.inet_ntoa(packed[20:24]))
     return ips
+
+
+def set_connection_method(file_props: FileProp, method: str) -> None:
+    """Shows how the transfer connects: direct, proxy, direct+proxy or ibb"""
+    if file_props.connection_method == method:
+        return
+    log.info("Transfer %s connects via %s", file_props.sid, method)
+    file_props.connection_method = method
+    app.ged.raise_event(FileConnectionStage(file_props=file_props))
 
 
 def is_transfer_paused(file_props: FileProp) -> bool:
@@ -255,6 +266,11 @@ class Bytestream(BaseModule):
             return
         if streamhost is None:
             return
+        file_props = FilesProp.getFilePropBySid(streamhost["sid"])
+        if file_props is not None:
+            # Direct addresses carry the jid of the sender, proxies their own
+            is_direct = streamhost["jid"] == streamhost["initiator"]
+            set_connection_method(file_props, "direct" if is_direct else "proxy")
         iq = nbxmpp.Iq(
             to=streamhost["initiator"], typ="result", frm=streamhost["target"]
         )
@@ -353,8 +369,18 @@ class Bytestream(BaseModule):
             query = iq.setTag("query", namespace=Namespace.BYTESTREAM)
             query.setAttr("sid", file_props.sid)
 
-            self._add_addiditional_streamhosts_to_query(query, file_props)
-            self._add_local_ips_as_streamhosts_to_query(query, file_props)
+            # With the port closed the receiver would only lose time trying our
+            # own addresses, offer the proxy alone then
+            proxyhosts = self._get_file_transfer_proxies_from_config(file_props)
+            blocked = is_incoming_port_blocked(
+                port, local_address=self._con.local_address
+            )
+            file_props.direct_blocked = bool(proxyhosts) and blocked is True
+            if file_props.direct_blocked:
+                log.info("Port %s is blocked by ufw, offering the proxy only", port)
+            else:
+                self._add_addiditional_streamhosts_to_query(query, file_props)
+                self._add_local_ips_as_streamhosts_to_query(query, file_props)
             self._add_proxy_streamhosts_to_query(query, file_props)
             if not use_upnp:
                 self._con.connection.send(iq)
@@ -708,6 +734,12 @@ class Bytestream(BaseModule):
             )
 
         if file_props.type_ == "r":
+            direct = any(host["jid"] == host["initiator"] for host in streamhosts)
+            proxy = any(host["jid"] != host["initiator"] for host in streamhosts)
+            if direct and proxy:
+                set_connection_method(file_props, "direct+proxy")
+            elif streamhosts:
+                set_connection_method(file_props, "direct" if direct else "proxy")
             app.socks5queue.connect_to_hosts(
                 self._account, sid, self.send_success_connect_reply, _connection_error
             )
@@ -788,12 +820,14 @@ class Bytestream(BaseModule):
             # firewall, and connected to the proxy instead
             file_props.streamhost_used = True
             file_props.is_a_proxy = True
+            set_connection_method(file_props, "proxy")
             self._con.get_module("SI").send_via_proxy(file_props, proxy)
             raise nbxmpp.NodeProcessed
 
         if file_props.stopped:
             self.remove_transfer(file_props)
         else:
+            set_connection_method(file_props, "direct")
             app.socks5queue.send_file(file_props, self._account, "server")
 
         raise nbxmpp.NodeProcessed

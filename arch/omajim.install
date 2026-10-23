@@ -1,0 +1,41 @@
+# Sugere liberar no ufw a porta das transferências diretas de arquivos.
+# Sem a regra os arquivos ainda chegam, mas pelo proxy do servidor.
+
+_port=28011
+
+# Redes locais da máquina, sem as de containers, VMs e VPNs
+_local_networks() {
+	ip -o -4 route show proto kernel scope link 2>/dev/null |
+		awk '$3 !~ /^(docker|br-|veth|virbr|vmnet|vboxnet|lxcbr|lxdbr|podman|cni|tailscale|wg|tun)/ {print $1}'
+}
+
+_ufw_suggestion() {
+	[ -r /etc/ufw/ufw.conf ] || return 0
+	grep -q '^ENABLED=yes' /etc/ufw/ufw.conf || return 0
+	# Com a entrada liberada por padrão, nada bloqueia a porta
+	grep -q '^DEFAULT_INPUT_POLICY="ACCEPT"' /etc/default/ufw 2>/dev/null && return 0
+	# Já existe uma regra para a porta
+	grep -q "^### tuple ### .* ${_port} .* in" /etc/ufw/user.rules 2>/dev/null && return 0
+
+	echo
+	echo "==> Omajim: o ufw está bloqueando a porta ${_port}/tcp."
+	echo "    As transferências diretas de arquivos (Pidgin e outros clientes) usam"
+	echo "    essa porta. Sem ela, os arquivos passam pelo proxy do servidor."
+	echo "    Para liberar só para a rede local:"
+	local networks network
+	networks=$(_local_networks)
+	[ -n "$networks" ] || networks="<rede>/24"
+	for network in $networks; do
+		echo "      sudo ufw allow from ${network} to any port ${_port} proto tcp"
+	done
+	echo "    Evite liberar redes de visitantes. Para ver as regras: sudo ufw status numbered"
+	echo
+}
+
+post_install() {
+	_ufw_suggestion
+}
+
+post_upgrade() {
+	_ufw_suggestion
+}

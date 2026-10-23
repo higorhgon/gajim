@@ -31,6 +31,7 @@ provides=('gajim' 'omajim')
 conflicts=('gajim' 'gajim-higorhgon-git')
 replaces=('gajim-higorhgon-git')
 source=("${_srcname}::git+https://github.com/higorhgon/omajim.git#branch=main")
+install=omajim.install
 sha256sums=('SKIP')
 
 pkgver() {

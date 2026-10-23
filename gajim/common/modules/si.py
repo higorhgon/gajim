@@ -31,6 +31,7 @@ from gajim.common.file_props import FileProp
 from gajim.common.file_props import FilesProp
 from gajim.common.glib_idlequeue import GLibIdleQueue
 from gajim.common.modules.base import BaseModule
+from gajim.common.modules.bytestream import set_connection_method
 from gajim.common.socks5 import SocksQueue
 from gajim.common.socks5_proxy import Socks5ProxySender
 from gajim.common.storage.archive import models as mod
@@ -472,7 +473,14 @@ class SI(BaseModule):
         self._log.info("SI offer %s accepted, stream method: %s", sid, method)
         if method == Namespace.BYTESTREAM:
             self._con.get_module("Bytestream").send_socks5_info(fp, use_upnp=False)
+            if fp.direct_blocked:
+                set_connection_method(fp, "proxy")
+            elif fp.proxyhosts:
+                set_connection_method(fp, "direct+proxy")
+            else:
+                set_connection_method(fp, "direct")
         elif method == Namespace.IBB:
+            set_connection_method(fp, "ibb")
             # Closed by the IBB module once the transfer ends
             file = open(fp.file_name, "rb")  # noqa: SIM115
             self._con.get_module("IBB").send_open(fp.receiver, sid, file)
